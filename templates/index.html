@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LSB Steganography Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            padding: 40px;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #eee;
+            margin-bottom: 30px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .tab:hover:not(.active) {
+            background: #e9ecef;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .file-input {
+            opacity: 0;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        
+        .file-input-display {
+            display: block;
+            padding: 12px;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            text-align: center;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .file-input-display:hover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .result-content {
+            margin-top: 15px;
+        }
+        
+        .result-content pre {
+            background: rgba(0,0,0,0.1);
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .download-link {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 600;
+        }
+        
+        .download-link:hover {
+            background: #218838;
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        
+        .info-box h3 {
+            color: #1565c0;
+            margin-bottom: 15px;
+        }
+        
+        .info-box ul {
+            margin-left: 20px;
+        }
+        
+        .info-box li {
+            margin-bottom: 8px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>LSB Steganography Tool</h1>
+            <p>Hide and extract data using advanced key-based LSB steganography</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="info-box">
+                <h3>How it works:</h3>
+                <ul>
+                    <li><strong>Encoding:</strong> Hides text, images, PDFs, or executables inside cover files using your secret key</li>
+                    <li><strong>Key-based Security:</strong> Your key influences bit positioning, permutation, and starting locations</li>
+                    <li><strong>Multiple File Types:</strong> Supports text, images (PNG, JPG), PDFs, executables, and binary files</li>
+                    <li><strong>Decoding:</strong> Extracts hidden data - requires the same key used for encoding</li>
+                </ul>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('encode')">Encode Data</button>
+                <button class="tab" onclick="switchTab('decode')">Decode Data</button>
+            </div>
+            
+            <!-- Encode Tab -->
+            <div id="encode-tab" class="tab-content active">
+                <form id="encode-form">
+                    <div class="form-group">
+                        <label for="encode-key">Secret Key (required for both encoding and decoding):</label>
+                        <input type="text" id="encode-key" name="key" required 
+                               placeholder="Enter your secret key (numeric or text)">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="cover-file">Cover File (file to hide data in):</label>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="cover-file" name="cover_file" class="file-input" required 
+                                   accept=".txt,.png,.jpg,.jpeg,.gif,.bmp,.pdf,.exe,.bin,.dll,.md,.csv">
+                            <span class="file-input-display">Choose cover file...</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Payload Data (choose one):</label>
+                        <div style="margin-bottom: 15px;">
+                            <textarea id="payload-text" name="payload_text" 
+                                      placeholder="Enter text to hide (or upload a file below)"></textarea>
+                        </div>
+                        <div>
+                            <div class="file-input-wrapper">
+                                <input type="file" id="payload-file" name="payload_file" class="file-input"
+                                       accept=".txt,.png,.jpg,.jpeg,.gif,.bmp,.pdf,.exe,.bin,.dll,.md,.csv">
+                                <span class="file-input-display">Or choose payload file...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn">Encode Data</button>
+                </form>
+                
+                <div class="loading" id="encode-loading">
+                    <div class="spinner"></div>
+                    <p>Encoding data...</p>
+                </div>
+                
+                <div id="encode-result" class="result">
+                    <div id="encode-message"></div>
+                    <div id="encode-content" class="result-content"></div>
+                </div>
+            </div>
+            
+            <!-- Decode Tab -->
+            <div id="decode-tab" class="tab-content">
+                <form id="decode-form">
+                    <div class="form-group">
+                        <label for="decode-key">Secret Key (must match the encoding key):</label>
+                        <input type="text" id="decode-key" name="key" required 
+                               placeholder="Enter the same key used for encoding">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="encoded-file">Encoded File:</label>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="encoded-file" name="encoded_file" class="file-input" required
+                                   accept=".txt,.png,.jpg,.jpeg,.gif,.bmp,.pdf,.exe,.bin,.dll,.md,.csv">
+                            <span class="file-input-display">Choose encoded file...</span>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn">Decode Data</button>
+                </form>
+                
+                <div class="loading" id="decode-loading">
+                    <div class="spinner"></div>
+                    <p>Decoding data...</p>
+                </div>
+                
+                <div id="decode-result" class="result">
+                    <div id="decode-message"></div>
+                    <div id="decode-content" class="result-content"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Tab switching
+        function switchTab(tabName) {
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            tabs.forEach(tab => tab.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            document.querySelector(`.tab:nth-child(${tabName === 'encode' ? '1' : '2'})`).classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+        }
+        
+        // File input display updates
+        function setupFileInput(inputId, displayClass) {
+            const input = document.getElementById(inputId);
+            const display = input.nextElementSibling;
+            
+            input.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    display.textContent = this.files[0].name;
+                } else {
+                    display.textContent = display.getAttribute('data-placeholder') || 'Choose file...';
+                }
+            });
+        }
+        
+        setupFileInput('cover-file', '.file-input-display');
+        setupFileInput('payload-file', '.file-input-display');
+        setupFileInput('encoded-file', '.file-input-display');
+        
+        // Form submissions
+        document.getElementById('encode-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const resultDiv = document.getElementById('encode-result');
+            const loadingDiv = document.getElementById('encode-loading');
+            
+            resultDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+            
+            try {
+                const response = await fetch('/encode', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                loadingDiv.style.display = 'none';
+                
+                if (result.success) {
+                    resultDiv.className = 'result success';
+                    document.getElementById('encode-message').textContent = result.message;
+                    document.getElementById('encode-content').innerHTML = `
+                        <p><strong>Payload Type:</strong> ${result.payload_type}</p>
+                        <p><strong>Payload Size:</strong> ${result.payload_size} bytes</p>
+                        <p><strong>Cover Size:</strong> ${result.cover_size} bytes</p>
+                        <p><strong>Encoded Size:</strong> ${result.encoded_size} bytes</p>
+                        <a href="${result.download_url}" class="download-link">Download Encoded File</a>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    document.getElementById('encode-message').textContent = result.error || 'Encoding failed';
+                    document.getElementById('encode-content').innerHTML = '';
+                }
+                
+                resultDiv.style.display = 'block';
+                
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                resultDiv.className = 'result error';
+                resultDiv.style.display = 'block';
+                document.getElementById('encode-message').textContent = 'Network error: ' + error.message;
+                document.getElementById('encode-content').innerHTML = '';
+            }
+        });
+        
+        document.getElementById('decode-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const resultDiv = document.getElementById('decode-result');
+            const loadingDiv = document.getElementById('decode-loading');
+            
+            resultDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+            
+            try {
+                const response = await fetch('/decode', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                loadingDiv.style.display = 'none';
+                
+                if (result.success) {
+                    resultDiv.className = 'result success';
+                    document.getElementById('decode-message').textContent = result.message;
+                    
+                    let content = `
+                        <p><strong>Payload Type:</strong> ${result.payload_type}</p>
+                        <p><strong>Payload Size:</strong> ${result.payload_size} bytes</p>
+                        <a href="${result.download_url}" class="download-link">Download Decoded File</a>
+                    `;
+                    
+                    if (result.text_content) {
+                        content += '<p><strong>Text Content:</strong></p><pre>' + 
+                                  result.text_content + '</pre>';
+                    }
+                    
+                    document.getElementById('decode-content').innerHTML = content;
+                } else {
+                    resultDiv.className = 'result error';
+                    document.getElementById('decode-message').textContent = result.error || 'Decoding failed';
+                    document.getElementById('decode-content').innerHTML = '';
+                }
+                
+                resultDiv.style.display = 'block';
+                
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                resultDiv.className = 'result error';
+                resultDiv.style.display = 'block';
+                document.getElementById('decode-message').textContent = 'Network error: ' + error.message;
+                document.getElementById('decode-content').innerHTML = '';
+            }
+        });
+    </script>
+</body>
+</html>
