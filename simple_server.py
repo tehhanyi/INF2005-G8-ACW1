@@ -88,14 +88,14 @@ class SteganoHandler(http.server.BaseHTTPRequestHandler):
             return
         
         cover_file = form['cover_file'] if 'cover_file' in form else None
-        if not cover_file or not cover_file.file:
+        if cover_file is None or not hasattr(cover_file, 'file') or not cover_file.file:
             self.send_json_response({'error': 'Cover file is required'}, 400)
             return
         
         payload_text = form.getvalue('payload_text', '').strip()
         payload_file = form['payload_file'] if 'payload_file' in form else None
         
-        if not payload_text and (not payload_file or not payload_file.file):
+        if not payload_text and (payload_file is None or not hasattr(payload_file, 'file') or not payload_file.file):
             self.send_json_response({'error': 'Either payload text or payload file is required'}, 400)
             return
         
@@ -172,7 +172,7 @@ class SteganoHandler(http.server.BaseHTTPRequestHandler):
             return
         
         encoded_file = form['encoded_file'] if 'encoded_file' in form else None
-        if not encoded_file or not encoded_file.file:
+        if encoded_file is None or not hasattr(encoded_file, 'file') or not encoded_file.file:
             self.send_json_response({'error': 'Encoded file is required'}, 400)
             return
         

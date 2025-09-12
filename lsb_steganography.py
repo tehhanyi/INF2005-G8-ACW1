@@ -111,8 +111,9 @@ class LSBSteganography:
         cover_array = bytearray(cover_data)
         message_bits = self._bytes_to_bits(message)
         
-        # Add end marker (8 bits of alternating pattern)
-        message_bits.extend([1, 0, 1, 0, 1, 0, 1, 0])
+        # Add end marker (16 bits of a more unique pattern)
+        end_marker = [1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1]  # More unique pattern
+        message_bits.extend(end_marker)
         
         # Get key-based parameters
         start_pos = self.key_manager.get_starting_position(len(cover_array))
@@ -143,21 +144,26 @@ class LSBSteganography:
         bit_offset = self.key_manager.bit_offset
         
         message_bits = []
-        end_pattern = [1, 0, 1, 0, 1, 0, 1, 0]
+        end_pattern = [1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1]  # Same unique pattern
         target_bit = bit_offset % 8
         
         # Extract bits using the same pattern as encoding
-        for i in range(len(encoded_data)):
+        max_iterations = min(len(encoded_data), 10000)  # Reasonable limit
+        for i in range(max_iterations):
             pos = (start_pos + i) % len(encoded_data)
             
             # Extract bit from the target position
             bit = (encoded_data[pos] >> target_bit) & 1
             message_bits.append(bit)
             
-            # Check for end pattern
-            if len(message_bits) >= 8 and message_bits[-8:] == end_pattern:
-                message_bits = message_bits[:-8]  # Remove end pattern
+            # Check for end pattern (16 bits)
+            if len(message_bits) >= 16 and message_bits[-16:] == end_pattern:
+                message_bits = message_bits[:-16]  # Remove end pattern
                 break
+        else:
+            # If we didn't find the end pattern, it might be a key error
+            # Try to extract what we can and let the upper layer validate
+            pass
         
         # Convert bits back to bytes
         return self._bits_to_bytes(message_bits)
@@ -233,9 +239,16 @@ def detect_file_type(data: bytes, filename: str = None) -> str:
         try:
             # Check if it's mostly printable ASCII/UTF-8 text
             decoded = data.decode('utf-8')
-            # Count printable characters
+            # Count printable characters and control characters
             printable_chars = sum(1 for c in decoded if c.isprintable() or c.isspace())
-            if printable_chars >= len(decoded) * 0.8:  # At least 80% printable
+            control_chars = sum(1 for c in decoded if ord(c) < 32 and c not in '\t\n\r')
+            
+            # If there are control characters (like null bytes), it's likely binary
+            if control_chars > 0:
+                return 'other'
+            
+            # Check if it's mostly printable (95% threshold for text)
+            if printable_chars >= len(decoded) * 0.95:
                 return 'text'
         except:
             pass

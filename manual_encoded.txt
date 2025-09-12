@@ -1,0 +1,13 @@
+This is a test cover file that will be used to hide secret messages.
+It needs to be long enough to contain the encoded data with metadata.
+The LSB steganography algorithm will use the key to determine how to embed the secret data.
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+Duis aute irure dolor in reprehenderit in voluptate velit esse ckllwm"fmlopg ew duekav"lunlc rapiatup,Exaeptgwp qklv"oaccgcat"aupkdatcv non rpoidgnt,"qunv"in"aunrc sui"mffickc"dgsepwnv oollkt anim kd"gst la`mpwm,
+Qed"wt perspkaiatiq wlde"mmlkq iqte"nctwq eprop"qiv"volupvctgo cccwqcntkum donmpeoqug"lcwfcntkum,"tovcm"peo"crepiam.
+Gasug irsa suae"a` klno"ilteltmre tgpitctiq gt"swasi"apcjiteavo"beatce"vktag dicta qwnt"expliaabm,Nemm"elim irscm"tmlurvavem"swka tonurvas"skt"cqreplavwp awt ofiv"cwv fugkt,"sgd"quka"cmlseswwntwp"magni fmlmreq,
+Eos"qui patkmlg"vmnwptatgo sequi lesaiunt lgqug"popro sukqqwcm"eqv"swi"fonopgm"ipsuo"qukc"donmp"sit"cmgv.
+Aonqectetwp, cdkrkqai telkt,"sef"swia"lml"luosucm"giwq"mmfk vemrorc knckfunt ut"lcbmre et"fmnope"ocelam"ankqucm,Suaerav"vmluptatgm uv elkm cd"minkmc"telkcm qwiq"nmsvruo"exgpaivctimleo"wllco"aorpmpiq swqaipkt nc`opimscm,
+Lisk"ut cniswid"gx gc aoommfk aolqeswatur"qwkq awtem"tel gwm"iupe perpehglderit sui kn ga vmnwptave"vglkv"gsqg,
+Swcm"nihkn moneqvkae"cmnseqwcvur vel"klluo swk dolmpgm ewm"fweiat quo tolupvcq lunna"papiatur,Av term emq gv"accwsaowq"gt kwsto mfio"dienisskmoq fuckmws"suk"`lcnfivkis"rrcesenviuo"vmnurtavwm"dglenkti ctqwg,Cmppwpti"qwos dmlmpes et"sucs mmneqvkaq"ezagrtupk"qknt maccecati aupkditcte nml"rpmvkfelt. skoinisue"sult,Kn"awnrc"qwi"oddkcka"dgqerwlv omlnktia"alkoi kd est lc`orwm et dmnmpwo dwga et jcrum"qukfgm pgruo"dacinis.Est"gv"gxrefkvc"dkstinavio nam"nibgpm vgmpope"cwm"qoluvc lmbis"gqv eligelfk optko cwmqwe"nihil impedit.
+Quo minus id quod maxime placeat facere possimus omnis voluptas assumenda est omnis dolor repellendus.

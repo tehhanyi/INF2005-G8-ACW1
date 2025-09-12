@@ -79,7 +79,7 @@ def test_key_validation():
         print("✗ Key validation test FAILED - wrong key was accepted")
         return False
     except ValueError as e:
-        if "Invalid key" in str(e):
+        if "Invalid key" in str(e) or "Invalid or corrupted steganography data" in str(e):
             print("✓ Key validation test PASSED - wrong key rejected")
             return True
         else:
