@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LSB Steganography Tool</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .drop-zone {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            width: 100%;
+            height: 200px;
+            text-align: center;
+            padding: 20px;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+        .drop-zone:hover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">LSB Steganography Tool</h1>
+        
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="encode-tab" data-bs-toggle="tab" data-bs-target="#encode" type="button">Encode</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="decode-tab" data-bs-toggle="tab" data-bs-target="#decode" type="button">Decode</button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="mainTabContent">
+            <!-- Encode Tab -->
+            <div class="tab-pane fade show active" id="encode" role="tabpanel">
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <h4>Cover Object</h4>
+                        <div class="drop-zone" id="coverDropZone">
+                            <p>Drag & drop cover file here or click to browse</p>
+                            <input type="file" id="coverFile" accept=".png,.bmp,.wav" style="display: none;">
+                        </div>
+                        <div id="coverInfo"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <h4>Payload</h4>
+                        <div class="drop-zone" id="payloadDropZone">
+                            <p>Drag & drop payload file here or click to browse</p>
+                            <input type="file" id="payloadFile" style="display: none;">
+                        </div>
+                        <div id="payloadInfo"></div>
+                    </div>
+                </div>
+
+                <!-- Settings -->
+                <div class="row mt-4">
+                    <div class="col-md-3">
+                        <label for="lsbCount" class="form-label">LSB Count (1-8):</label>
+                        <input type="number" class="form-control" id="lsbCount" min="1" max="8" value="1">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="secretKey" class="form-label">Secret Key:</label>
+                        <input type="number" class="form-control" id="secretKey" placeholder="Enter numeric key">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="startLocation" class="form-label">Start Location:</label>
+                        <input type="number" class="form-control" id="startLocation" min="0" value="0">
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary mt-4" id="encodeBtn">Encode</button>
+                    </div>
+                </div>
+
+                <!-- Capacity Info -->
+                <div id="capacityInfo" class="mt-3"></div>
+                
+                <!-- Results -->
+                <div id="encodeResults" class="mt-4"></div>
+            </div>
+
+            <!-- Decode Tab -->
+            <div class="tab-pane fade" id="decode" role="tabpanel">
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <h4>Stego Object</h4>
+                        <div class="drop-zone" id="stegoDropZone">
+                            <p>Drag & drop stego file here or click to browse</p>
+                            <input type="file" id="stegoFile" accept=".png,.bmp,.wav" style="display: none;">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="decodeLsbCount" class="form-label">LSB Count:</label>
+                                <input type="number" class="form-control" id="decodeLsbCount" min="1" max="8" value="1">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="decodeKey" class="form-label">Secret Key:</label>
+                                <input type="number" class="form-control" id="decodeKey" placeholder="Enter key">
+                            </div>
+                        </div>
+                        <button class="btn btn-success mt-3" id="decodeBtn">Decode</button>
+                    </div>
+                </div>
+                
+                <!-- Decode Results -->
+                <div id="decodeResults" class="mt-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
