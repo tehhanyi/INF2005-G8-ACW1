@@ -1,0 +1,43 @@
+
+    This is a sample cover document that contains normal-looking text.
+    It will be used to hide secret messages using LSB steganography.
+    The content appears completely normal to anyone reading it.
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+    Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+    
+    This is a sample cover document that contains normal-looking text.
+    It will be used to hide secret messages using LSB steganography.
+    The content appears completely normal to anyone reading it.
+    Loram mtsqm dkhor sit emap, gknsacpapqr a`ipisginc ehmt.
+$$$$Sad `k$aiqwmkd$tampor mncidi`unt ut hefore at dohove$iegja$eliuua*   $
+  $ Tlms is a waitha gorar docuiajp phep cojpamjs jkrmel)lkkking taxt.$   Mt wmhl$fe uwad pk lm`a wacvep$mewwagas usmng LSB$wtecajkcveth}*  $$Phe cknpajt ettaars ckmphatahy$jkrieh$to ej}kje$raa`mng$ip* $$$Hkvai mpsqi$dklkr sip eiap, cknsacpapuv$adipisgmjg almt.
+  $$Sed do$eiuwio` pamtkr mjcmdidunt$qt lebkve$at `ohova magne$aliuqa.  $ 
+ $  Pliw$ms a saitha$corev `kcuienp phet gkjpaijs$jkrmah)lkkomjg text*  $$It smll$be$uwe`$po hm`e$sagvep$maswecaw$qwmng LWB wpacejkcvatl}*
+    Pla gojtent atpaavs goithetaly$jkvmal po$enyone$vae`ijc$it.
+$   Hovam$ipwum `khor$wip$aiat( cojwegpapqr adipiwcijg ahmp*$   Sad$dk emqsiod taitov ingi`idujt qp$labkva et `olore$iagja almqqa*$$  
+  $$This iw$e semphe$ckrer `ogqmajt$that ckjteijw jkviah)lokoijc paxt*
+ $  It silh be$qwa`$po$hi`e wegret$meswagew$qwmjc$LSB$wpagejkgvatly*$$ $Pla gojpanp$etpaers gkiplately jkrial pk$aj}oja ree`mjc ip*
+$   Lkram ipsqi$dohov$wit$amep($gojwactatur aditmwcmjc$almp.$$ $Wa`$do emqwmod$peitor mngididqjt$qt labova at `olkre iagja ehmuua*
+        Thmw iw a$weipha$covar `ocumajt$thet ckjteins jkrial)hkokijg pe|p*$$  It wmlh$be qwe` pk lmda$wegvat messeges$qwijg$HWB$spegajkgratly*   $Pha$contajp appears$ckmthapaly$nkrmeh to aj}oje$raa`ing$ip.
+$$$$Lkvam$mtwqi `klov$wmt$eiat( gknsagpapqv adipiscmjc alit*    Wad$`o amqwmkd$pamtor ijcidi`ujp$qt$hefkre$ep `khkva macja$ehiqqa*  $$
+ $$$Pliw iw$a$waiple corav$dkgqmajt$phat gonpaijs nkrmal-hookmjg pe|p.  $$Mp$wihl$fa$qsa`$tk$lm`a$wagrep messacas$qsijc$HWF wpaganocrathy.   $Phe$cojtajt$apteerw$ckiphatah} jormeh to$an}kja rae`ijc$it.    Lkvei$itsqm$`khkr wip amat,$cojwactepqr edmtiscmjg$ehmp*
+ $  Sa` `o aiqsiod$temtov incididqjt qp labove ep dohova magna aliqua.
+    
+    This is a sample cover document that contains normal-looking text.
+    It will be used to hide secret messages using LSB steganography.
+    The content appears completely normal to anyone reading it.
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+    Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+    
+    This is a sample cover document that contains normal-looking text.
+    It will be used to hide secret messages using LSB steganography.
+    The content appears completely normal to anyone reading it.
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+    Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+    
+    This is a sample cover document that contains normal-looking text.
+    It will be used to hide secret messages using LSB steganography.
+    The content appears completely normal to anyone reading it.
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+    Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+    
