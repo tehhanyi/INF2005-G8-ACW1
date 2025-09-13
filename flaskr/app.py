@@ -1,6 +1,9 @@
 from flask import Flask, request, render_template, send_from_directory, jsonify, url_for
 from werkzeug.utils import secure_filename
 import os
+import uuid
+import shutil
+import uuid
 
 # Import your custom modules using absolute imports
 from modules.image_stego import encode_image, decode_image, calculate_image_capacity
@@ -27,7 +30,8 @@ def encode():
     try:
         # Get form data
         cover_file = request.files['cover_file']
-        payload_file = request.files['payload_file']
+        payload_file = request.files.get('payload_file')
+        payload_text = request.form.get('payload_text', '')
         key = request.form['key']
         lsb_count = int(request.form['lsb_count'])
         start_location = request.form.get('start_location', '0')
@@ -38,13 +42,21 @@ def encode():
             
         # Save uploaded files
         cover_filename = secure_filename(cover_file.filename)
-        payload_filename = secure_filename(payload_file.filename)
-        
         cover_path = os.path.join(app.config['UPLOAD_FOLDER'], cover_filename)
-        payload_path = os.path.join(app.config['UPLOAD_FOLDER'], payload_filename)
-        
         cover_file.save(cover_path)
-        payload_file.save(payload_path)
+
+        # Determine payload source (file or inline text)
+        if payload_file and getattr(payload_file, 'filename', ''):
+            payload_filename = secure_filename(payload_file.filename)
+            payload_path = os.path.join(app.config['UPLOAD_FOLDER'], payload_filename)
+            payload_file.save(payload_path)
+        elif payload_text:
+            payload_filename = f"payload_text_{uuid.uuid4().hex}.txt"
+            payload_path = os.path.join(app.config['UPLOAD_FOLDER'], payload_filename)
+            with open(payload_path, 'w', encoding='utf-8') as f:
+                f.write(payload_text)
+        else:
+            return jsonify({'error': 'No payload provided. Upload a file or enter text.'}), 400
         
         # Determine file type and call appropriate encoding function
         file_ext = cover_filename.lower().split('.')[-1]
@@ -56,10 +68,19 @@ def encode():
         else:
             return jsonify({'error': 'Unsupported file format'}), 400
 
-        # Add download URL if stego file was generated
+        # Move stego output into downloads and add download URL
         if isinstance(result, dict) and result.get('stego_path'):
-            stego_filename = os.path.basename(result['stego_path'])
-            result['stego_url'] = url_for('download_upload_file', filename=stego_filename)
+            src_path = result['stego_path']
+            stego_filename = os.path.basename(src_path)
+            dst_path = os.path.join(app.config['DOWNLOAD_FOLDER'], stego_filename)
+            try:
+                if os.path.abspath(src_path) != os.path.abspath(dst_path):
+                    shutil.move(src_path, dst_path)
+                result['stego_path'] = dst_path
+            except Exception:
+                # If move fails, keep original path
+                dst_path = src_path
+            result['stego_url'] = url_for('download_download_file', filename=os.path.basename(dst_path))
 
         return jsonify(result)
         
@@ -96,8 +117,16 @@ def decode():
 
         # Add download URL for extracted payload
         if isinstance(result, dict) and result.get('payload_path'):
-            payload_filename = os.path.basename(result['payload_path'])
-            result['payload_url'] = url_for('download_upload_file', filename=payload_filename)
+            src_path = result['payload_path']
+            payload_filename = os.path.basename(src_path)
+            dst_path = os.path.join(app.config['DOWNLOAD_FOLDER'], payload_filename)
+            try:
+                if os.path.abspath(src_path) != os.path.abspath(dst_path):
+                    shutil.move(src_path, dst_path)
+                result['payload_path'] = dst_path
+            except Exception:
+                dst_path = src_path
+            result['payload_url'] = url_for('download_download_file', filename=os.path.basename(dst_path))
 
         return jsonify(result)
     except Exception as e:
@@ -119,18 +148,22 @@ def calculate_capacity():
     try:
         cover_file = request.files['cover_file']
         lsb_count = int(request.form['lsb_count'])
+        start_location = int(request.form.get('start_location', '0')) if 'start_location' in request.form else 0
         
         # Calculate capacity based on file type
         file_ext = cover_file.filename.lower().split('.')[-1]
         
         if file_ext in ['png', 'bmp', 'gif']:
-            capacity = calculate_image_capacity(cover_file, lsb_count)
+            total_bytes = calculate_image_capacity(cover_file, lsb_count)
         elif file_ext in ['wav', 'pcm']:
-            capacity = calculate_audio_capacity(cover_file, lsb_count)
+            total_bytes = calculate_audio_capacity(cover_file, lsb_count)
         else:
             return jsonify({'error': 'Unsupported file format'}), 400
-            
-        return jsonify({'capacity_bytes': capacity})
+        # Adjust for start_location in bit slots
+        total_bits = max(0, int(total_bytes) * 8)
+        adjusted_bits = max(0, total_bits - max(0, int(start_location)))
+        capacity = adjusted_bits // 8
+        return jsonify({'capacity_bytes': capacity, 'start_location': start_location})
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

@@ -1,16 +1,33 @@
 from math import gcd
 import random
+import hashlib
+
+def _normalize_key_str(key) -> str:
+    return str(key).strip().lower()
+
+def key_to_int(key) -> int:
+    """
+    Case-insensitive alphanumeric key derivation.
+    Deterministically hash the key to a 64-bit integer seed.
+    """
+    s = _normalize_key_str(key)
+    # empty becomes 0
+    if not s:
+        return 0
+    # Preserve legacy behavior for pure numeric keys
+    if s.lstrip('-').isdigit():
+        try:
+            return int(s)
+        except Exception:
+            pass
+    h = hashlib.sha256(s.encode('utf-8')).digest()
+    return int.from_bytes(h[:8], 'big', signed=False)
 
 def validate_key(key) -> bool:
     """
-    Accepts numeric strings (e.g., '123', '-7') or ints.
-    Returns True if convertible to int; else False.
+    Accept any non-empty string (case-insensitive). Numbers also valid.
     """
-    try:
-        int(key)
-        return True
-    except Exception:
-        return False
+    return _normalize_key_str(key) != ''
     
 # ---- Position generator (preferred: start + stride) ----
 def _stride_for(total: int, key_int: int) -> int:
@@ -41,7 +58,7 @@ def get_embedding_positions(key, data_length, cover_size, lsb_count, start_locat
     total = int(cover_size)
     count = int(data_length)
     start = int(start_location) % max(1, total)
-    key_int = int(key)
+    key_int = key_to_int(key)
 
     if count > total:
         count = total
@@ -56,13 +73,7 @@ def get_embedding_positions(key, data_length, cover_size, lsb_count, start_locat
 
 def generate_embedding_sequence(key, data_length, cover_size, start_location=0):
     """Generate a pseudo-random embedding sequence based on the key"""
-    random.seed(int(key))
+    random.seed(key_to_int(key))
     positions = list(range(start_location, cover_size))
     random.shuffle(positions)
     return positions[:data_length]
-def validate_key(key):
-    try:
-        int(key)
-        return True
-    except ValueError:
-        return False

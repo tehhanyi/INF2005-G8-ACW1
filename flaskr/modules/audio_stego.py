@@ -50,7 +50,7 @@ def _embed_bits_into_samples(samples: np.ndarray, bits, lsb_count: int, key: str
 
     # Embed each bit into the specified bit position of the target sample
     for i, b in enumerate(bits):
-        bit_val = 1 if b == '1' else 0
+        bit_val = 1 if (b == 1 or b == '1' or b is True) else 0
         slot = positions[i]
         sample_index = slot // lsb_count
         bit_index = slot % lsb_count  # 0 = LSB
@@ -74,7 +74,7 @@ def _extract_bits_from_samples(samples: np.ndarray, num_bits: int, lsb_count: in
         sample_index = slot // lsb_count
         bit_index = slot % lsb_count
         bit_val = (int(samples[sample_index]) >> bit_index) & 1
-        out_bits.append('1' if bit_val else '0')
+        out_bits.append(1 if bit_val else 0)
     return out_bits
 
 
@@ -197,7 +197,9 @@ def decode_audio(stego_path, key, lsb_count, start_location=0):
         if 32 > (total_slots - int(start_location)):
             raise ValueError('Decoding failed: insufficient capacity at start position (check start_location)')
         header_bits_legacy = _extract_bits_from_samples(samples, 32, int(lsb_count), str(key), int(start_location))
-        payload_len = int(''.join(header_bits_legacy), 2)
+        # Convert first 32 bits (LSB-first) to a 4-byte big-endian integer
+        legacy_hdr_bytes = bits_to_bytes(header_bits_legacy)
+        payload_len = int.from_bytes(legacy_hdr_bytes[:4], 'big')
         if payload_len < 0:
             raise ValueError('Decoding failed: invalid payload length (check key/lsb/start)')
 

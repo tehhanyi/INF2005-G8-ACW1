@@ -1,4 +1,3 @@
-from sre_constants import MAGIC
 from PIL import Image
 import os
 from .key_manager import get_embedding_positions
@@ -39,7 +38,7 @@ def encode_image(cover_path, payload_path, key, lsb_count, start_location):
     if not (1 <= k <= 8):
         raise ValueError("LSB count must be 1..8")
     start = int(start_location) if start_location is not None else 0
-    seed = int(key)
+    # key is now alphanumeric; pass through for internal hashing
 
     # Load cover (RGB carrier bytes)
     cover_img = Image.open(cover_path).convert("RGB")
@@ -67,7 +66,7 @@ def encode_image(cover_path, payload_path, key, lsb_count, start_location):
         raise ValueError(f"Payload too large: needs {len(blob)} bytes, capacity {capacity_bytes} bytes at k={k}")
 
     # Get carrier indices from key+start
-    positions = get_embedding_positions(seed, carriers_needed, total_carriers, k, start)
+    positions = get_embedding_positions(key, carriers_needed, total_carriers, k, start)
     if len(positions) < carriers_needed:
         raise ValueError("key_manager.get_embedding_positions returned too few positions.")
 
@@ -82,17 +81,31 @@ def encode_image(cover_path, payload_path, key, lsb_count, start_location):
         mask = (1 << k) - 1
         carrier[idx] = (carrier[idx] & ~mask) | (v & mask)
 
-    stego_name = f"stego_{os.path.splitext(os.path.basename(cover_path))[0]}.png"
+    # Choose output format/extension based on cover type
+    cover_ext = os.path.splitext(cover_path)[1].lower().lstrip('.')
+    out_fmt = 'PNG'
+    out_ext = 'png'
+    note = None
+    if cover_ext == 'bmp':
+        out_fmt, out_ext = 'BMP', 'bmp'
+    elif cover_ext == 'png':
+        out_fmt, out_ext = 'PNG', 'png'
+    elif cover_ext == 'gif':
+        # GIF is palette-based; to preserve embedded LSBs we save as PNG
+        # Also reject animated GIFs silently by converting single frame
+        out_fmt, out_ext = 'PNG', 'png'
+        note = 'gif_converted_to_png_for_lossless_lsb'
+
+    stego_name = f"stego_{os.path.splitext(os.path.basename(cover_path))[0]}.{out_ext}"
     stego_path = os.path.join(os.path.dirname(cover_path), stego_name)
-    Image.frombytes("RGB", (w, h), bytes(carrier)).save(stego_path, format="PNG")
+    Image.frombytes("RGB", (w, h), bytes(carrier)).save(stego_path, format=out_fmt)
 
-    return {"ok": True, "stego_path": stego_path, "embedded_bytes": len(payload),
-            "capacity_bytes": capacity_bytes, "k": k, "start": start}
+    result = {"ok": True, "stego_path": stego_path, "embedded_bytes": len(payload),
+              "capacity_bytes": capacity_bytes, "k": k, "start": start, "stego_format": out_fmt}
+    if note:
+        result['note'] = note
+    return result
 
-
-from .utils import iter_bits_lsb, pack_bits_lsb  # make sure this import exists
-
-from .utils import pack_bits_lsb  # make sure this import is at the top of the file
 
 def decode_image(stego_path, key, lsb_count, start_location=0):
     """
@@ -105,7 +118,7 @@ def decode_image(stego_path, key, lsb_count, start_location=0):
     if not (1 <= k <= 8):
         raise ValueError("LSB count must be 1..8")
     start = int(start_location) if start_location is not None else 0
-    seed = int(key)
+    # key is now alphanumeric; pass through for internal hashing
 
     stego_img = Image.open(stego_path).convert("RGB")
     w, h = stego_img.size
@@ -113,7 +126,7 @@ def decode_image(stego_path, key, lsb_count, start_location=0):
     total_carriers = len(data)
 
     # Visiting order must match encode
-    positions = get_embedding_positions(seed, total_carriers, total_carriers, k, start)
+    positions = get_embedding_positions(key, total_carriers, total_carriers, k, start)
 
     mask = (1 << k) - 1
 

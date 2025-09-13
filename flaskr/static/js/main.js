@@ -16,6 +16,7 @@
 
   const coverInput = byId('coverFile');
   const payloadInput = byId('payloadFile');
+  const payloadText = byId('payloadText');
   const stegoInput = byId('stegoFile');
 
   const lsbCount = byId('lsbCount');
@@ -91,13 +92,15 @@
     capInfo.textContent = '';
     const f = coverInput.files && coverInput.files[0];
     const lsb = parseInt(lsbCount.value || '1', 10);
+    const start = parseInt(startInput.value || '0', 10);
     if (!f || !lsb) return;
     const fd = new FormData();
     fd.append('cover_file', f);
     fd.append('lsb_count', String(lsb));
+    fd.append('start_location', String(start));
     try {
       const data = await postForm('/calculate_capacity', fd);
-      capInfo.textContent = `Capacity: ${fmtBytes(data.capacity_bytes)} (${data.capacity_bytes} bytes)`;
+      capInfo.textContent = `Capacity (after start offset): ${fmtBytes(data.capacity_bytes)} (${data.capacity_bytes} bytes)`;
     } catch (err) {
       capInfo.textContent = `Capacity error: ${JSON.stringify(err)}`;
     }
@@ -108,14 +111,20 @@
     encodeResults.textContent = '';
     const cover = coverInput.files && coverInput.files[0];
     const payload = payloadInput.files && payloadInput.files[0];
+    const payloadTextVal = (payloadText && payloadText.value) ? payloadText.value.trim() : '';
     const key = keyInput.value.trim();
     const lsb = parseInt(lsbCount.value || '1', 10);
     const start = parseInt(startInput.value || '0', 10);
-    if (!cover || !payload) { encodeResults.textContent = 'Please select cover and payload files.'; return; }
-    if (!key) { encodeResults.textContent = 'Please enter a numeric key.'; return; }
+    if (!cover) { encodeResults.textContent = 'Please select a cover file.'; return; }
+    if (!payload && !payloadTextVal) { encodeResults.textContent = 'Please select a payload file or enter payload text.'; return; }
+    if (!key) { encodeResults.textContent = 'Please enter a key.'; return; }
     const fd = new FormData();
     fd.append('cover_file', cover);
-    fd.append('payload_file', payload);
+    if (payload) {
+      fd.append('payload_file', payload);
+    } else if (payloadTextVal) {
+      fd.append('payload_text', payloadTextVal);
+    }
     fd.append('key', key);
     fd.append('lsb_count', String(lsb));
     fd.append('start_location', String(start));
@@ -140,7 +149,7 @@
     const lsb = parseInt(decodeLsb.value || '1', 10);
     const start = parseInt(decodeStart.value || '0', 10);
     if (!stego) { decodeResults.textContent = 'Please select a stego file.'; return; }
-    if (!key) { decodeResults.textContent = 'Please enter a numeric key.'; return; }
+    if (!key) { decodeResults.textContent = 'Please enter a key.'; return; }
     const fd = new FormData();
     fd.append('stego_file', stego);
     fd.append('key', key);
@@ -165,6 +174,7 @@
   setZoneHandlers(stegoDrop, stegoInput, stegoInfo);
 
   lsbCount && lsbCount.addEventListener('change', triggerCapacity);
+  startInput && startInput.addEventListener('change', triggerCapacity);
   encodeBtn && encodeBtn.addEventListener('click', onEncode);
   decodeBtn && decodeBtn.addEventListener('click', onDecode);
 })();

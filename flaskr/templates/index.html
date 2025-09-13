@@ -44,7 +44,7 @@
                         <h4>Cover Object</h4>
                         <div class="drop-zone" id="coverDropZone">
                             <p>Drag & drop cover file here or click to browse</p>
-                            <input type="file" id="coverFile" accept=".png,.bmp,.wav" style="display: none;">
+                            <input type="file" id="coverFile" accept=".png,.bmp,.gif,.wav" style="display: none;">
                         </div>
                         <div id="coverInfo"></div>
                     </div>
@@ -55,6 +55,10 @@
                             <input type="file" id="payloadFile" style="display: none;">
                         </div>
                         <div id="payloadInfo"></div>
+                        <div class="mt-3">
+                            <label for="payloadText" class="form-label">Or enter payload text:</label>
+                            <textarea class="form-control" id="payloadText" rows="4" placeholder="Type text to embed...(If a file is selected, the file takes precedence)"></textarea>
+                        </div>
                     </div>
                 </div>
 
@@ -66,7 +70,7 @@
                     </div>
                     <div class="col-md-3">
                         <label for="secretKey" class="form-label">Secret Key:</label>
-                        <input type="number" class="form-control" id="secretKey" placeholder="Enter numeric key">
+                        <input type="text" class="form-control" id="secretKey" placeholder="Enter key">
                     </div>
                     <div class="col-md-3">
                         <label for="startLocation" class="form-label">Start Location:</label>
@@ -91,7 +95,7 @@
                         <h4>Stego Object</h4>
                         <div class="drop-zone" id="stegoDropZone">
                             <p>Drag & drop stego file here or click to browse</p>
-                            <input type="file" id="stegoFile" accept=".png,.bmp,.wav" style="display: none;">
+                            <input type="file" id="stegoFile" accept=".png,.bmp,.gif,.wav" style="display: none;">
                         </div>
                         <div id="stegoInfo"></div>
                     </div>
@@ -103,7 +107,7 @@
                             </div>
                             <div class="col-md-4">
                                 <label for="decodeKey" class="form-label">Secret Key:</label>
-                                <input type="number" class="form-control" id="decodeKey" placeholder="Enter key">
+                                <input type="text" class="form-control" id="decodeKey" placeholder="Enter key (case-insensitive)">
                             </div>
                             <div class="col-md-4">
                                 <label for="decodeStartLocation" class="form-label">Start Location:</label>
