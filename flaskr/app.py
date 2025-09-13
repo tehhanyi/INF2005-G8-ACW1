@@ -5,12 +5,13 @@ import os
 # Import your custom modules using absolute imports
 from modules.image_stego import encode_image, decode_image, calculate_image_capacity
 from modules.audio_stego import encode_audio, decode_audio, calculate_audio_capacity
-from modules.key_manager import validate_key, generate_lsb_positions
+#from modules.key_manager import validate_key, generate_lsb_positions
+from modules.key_manager import validate_key
 from modules.utils import validate_file_size, get_file_info
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['DOWNLOAD_FOLDER'] = 'downloads'
+app.config['UPLOAD_FOLDER']   = os.path.join(app.root_path, 'uploads')
+app.config['DOWNLOAD_FOLDER'] = os.path.join(app.root_path, 'downloads')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
 
 # Ensure directories exist
@@ -85,8 +86,7 @@ def decode():
         file_ext = stego_filename.lower().split('.')[-1]
 
         if file_ext in ['png', 'bmp', 'gif']:
-            # Image decode not implemented yet
-            return jsonify({'error': 'Image decode not implemented yet'}), 501
+            result = decode_image(stego_path, key, lsb_count, start_location)
         elif file_ext in ['wav']:
             result = decode_audio(stego_path, key, lsb_count, start_location)
         elif file_ext in ['pcm']:

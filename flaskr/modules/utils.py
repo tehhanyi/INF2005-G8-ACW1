@@ -4,136 +4,103 @@ import hashlib
 from PIL import Image
 import wave
 
-def bytes_to_bits(data):
+# =========================
+# LSB-first bit utilities
+# =========================
+
+def iter_bits_lsb(data: bytes):
     """
-    Convert bytes to a list of bit strings
-    
-    Args:
-        data (bytes): Input byte data
-        
-    Returns:
-        list: List of bit strings ('0' or '1')
+    Yield bits LSB-first (ints 0/1) for each byte in 'data'.
+    Streaming generator -> low memory for large payloads.
     """
-    bits = []
-    for byte in data:
-        # Convert each byte to 8-bit binary string and split into individual bits
-        byte_bits = format(byte, '08b')
-        bits.extend(list(byte_bits))
-    return bits
+    for b in data:
+        for i in range(8):
+            yield (b >> i) & 1
+
+def pack_bits_lsb(bits_iter):
+    """
+    Pack bits (LSB-first) from an iterator/list into bytes.
+    Accepts ints 0/1 OR '0'/'1' strings.
+    """
+    out = bytearray()
+    val = 0
+    count = 0
+    for bit in bits_iter:
+        bit_i = 1 if (bit == 1 or bit == '1') else 0
+        val |= (bit_i & 1) << (count % 8)
+        count += 1
+        if count % 8 == 0:
+            out.append(val)
+            val = 0
+    if count % 8 != 0:
+        out.append(val)
+    return bytes(out)
+
+def bytes_to_bits(data: bytes):
+    """
+    Convert bytes -> list of bits (LSB-first), as INTs 0/1.
+    """
+    return [((b >> i) & 1) for b in data for i in range(8)]
 
 def bits_to_bytes(bits):
     """
-    Convert list of bit strings back to bytes
-    
-    Args:
-        bits (list): List of bit strings ('0' or '1')
-        
-    Returns:
-        bytes: Reconstructed byte data
+    Convert list/iter of bits (LSB-first) -> bytes.
+    Accepts ints 0/1 OR '0'/'1' strings.
     """
-    # Pad bits to make length divisible by 8
-    while len(bits) % 8 != 0:
-        bits.append('0')
-    
-    byte_data = bytearray()
-    # Process 8 bits at a time to form bytes
-    for i in range(0, len(bits), 8):
-        byte_bits = ''.join(bits[i:i+8])
-        byte_value = int(byte_bits, 2)
-        byte_data.append(byte_value)
-    
-    return bytes(byte_data)
+    return pack_bits_lsb(bits)
 
-def string_to_bits(text):
+def string_to_bits(text: str):
     """
-    Convert string to bits using UTF-8 encoding
-    
-    Args:
-        text (str): Input text string
-        
-    Returns:
-        list: List of bit strings
+    String -> list of LSB-first bits (ints), via UTF-8 encoding.
     """
     return bytes_to_bits(text.encode('utf-8'))
 
 def bits_to_string(bits):
     """
-    Convert bits back to string using UTF-8 decoding
-    
-    Args:
-        bits (list): List of bit strings
-        
-    Returns:
-        str: Decoded string
+    LSB-first bits -> string via UTF-8 (invalid bytes ignored).
+    Accepts ints or '0'/'1' strings.
     """
     try:
-        byte_data = bits_to_bytes(bits)
-        return byte_data.decode('utf-8', errors='ignore')
-    except:
+        return bits_to_bytes(bits).decode('utf-8', errors='ignore')
+    except Exception:
         return ""
 
+# =========================
+# File utilities
+# =========================
+
 def calculate_file_size(file_path):
-    """
-    Get file size in bytes
-    
-    Args:
-        file_path (str): Path to file
-        
-    Returns:
-        int: File size in bytes, 0 if file doesn't exist
-    """
     try:
         return os.path.getsize(file_path)
     except OSError:
         return 0
 
 def validate_file_exists(file_path):
-    """
-    Validate if file exists and is readable
-    
-    Args:
-        file_path (str): Path to file
-        
-    Returns:
-        dict: Validation result with success status and error message
-    """
     if not os.path.exists(file_path):
         return {'valid': False, 'error': 'File does not exist'}
-    
     if not os.path.isfile(file_path):
         return {'valid': False, 'error': 'Path is not a file'}
-    
     if not os.access(file_path, os.R_OK):
         return {'valid': False, 'error': 'File is not readable'}
-    
     return {'valid': True}
 
 def validate_image_file(file_path):
-    """
-    Validate image file format and get basic info
-    
-    Args:
-        file_path (str): Path to image file
-        
-    Returns:
-        dict: Validation result with image properties
-    """
+    if not os.path.exists(file_path):
+        return {'valid': False, 'error': 'File does not exist'}
+    try:
+        with Image.open(file_path) as im:
+            im.verify() 
+        with Image.open(file_path) as im2:
+            w, h = im2.size
+            mode = im2.mode
+        return {'valid': True, 'width': w, 'height': h, 'mode': mode}
+    except Exception as e:
+        return {'valid': False, 'error': f'Invalid image: {e}'}
 
 def validate_file_size(file_path, max_size_mb=5):
-    """
-    Validate file size against maximum allowed size
-    
-    Args:
-        file_path (str): Path to file
-        max_size_mb (int): Maximum allowed size in megabytes
-        
-    Returns:
-        dict: Validation result with success status and error message
-    """
     size_bytes = calculate_file_size(file_path)
     if size_bytes == 0:
         return {'valid': False, 'error': 'File does not exist or is empty'}
-    
     max_size_bytes = max_size_mb * 1024 * 1024
     if size_bytes > max_size_bytes:
         return {'valid': False, 'error': f'File exceeds maximum size of {max_size_mb} MB'}
@@ -141,15 +108,6 @@ def validate_file_size(file_path, max_size_mb=5):
     return {'valid': True}
 
 def get_file_info(file_path):
-    """
-    Get basic file information
-    
-    Args:
-        file_path (str): Path to file
-        
-    Returns:
-        dict: File information including name, size, and type
-    """
     if not os.path.exists(file_path):
         return {'error': 'File does not exist'}
     
