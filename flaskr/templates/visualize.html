@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steganography Analysis & Visualization</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .analysis-result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .result-image {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+            margin-top: 10px;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .file-upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            padding: 20px;
+            text-align: center;
+            transition: border-color 0.3s;
+        }
+
+        .file-upload-area:hover {
+            border-color: #007bff;
+        }
+
+        .file-upload-area.dragover {
+            border-color: #28a745;
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="text-center mb-4">Steganography Analysis & Visualization</h1>
+        
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-tabs mb-4" id="analysisTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="difference-tab" data-bs-toggle="tab" data-bs-target="#difference" type="button">Difference Map</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="histogram-tab" data-bs-toggle="tab" data-bs-target="#histogram" type="button">Histogram Analysis</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="bitplanes-tab" data-bs-toggle="tab" data-bs-target="#bitplanes" type="button">Bit Plane Analysis</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="capacity-tab" data-bs-toggle="tab" data-bs-target="#capacity" type="button">Capacity Analysis</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="steganalysis-tab" data-bs-toggle="tab" data-bs-target="#steganalysis" type="button">Steganalysis</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="complexity-tab" data-bs-toggle="tab" data-bs-target="#complexity" type="button">BPCS Complexity</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="audio-tab" data-bs-toggle="tab" data-bs-target="#audio" type="button">Audio Analysis</button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="analysisTabContent">
+            
+            <!-- Difference Map Tab -->
+            <div class="tab-pane fade show active" id="difference" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h3>Visual Difference Analysis</h3>
+                        <form id="differenceForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label class="form-label">Cover Image:</label>
+                                <input type="file" class="form-control" name="cover_file" accept="image/*" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Stego Image:</label>
+                                <input type="file" class="form-control" name="stego_file" accept="image/*" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Generate Difference Map</button>
+                        </form>
+                    </div>
+                    <div class="col-md-6">
+                        <div id="differenceResult" class="analysis-result d-none">
+                            <h4>Results:</h4>
+                            <div id="differenceImage"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Histogram Analysis Tab -->
+            <div class="tab-pane fade" id="histogram" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h3>Multi-Channel Histogram Analysis</h3>
+                        <form id="histogramForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label class="form-label">Cover Image:</label>
+                                <input type="file" class="form-control" name="cover_file" accept="image/*" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Stego Image (Optional):</label>
+                                <input type="file" class="form-control" name="stego_file" accept="image/*">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Analyze Histograms</button>
+                        </form>
+                    </div>
+                    <div class="col-md-6">
+                        <div id="histogramResult" class="analysis-result d-none">
+                            <h4>Results:</h4>
+                            <div id="histogramImage"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bit Plane Analysis Tab -->
+            <div class="tab-pane fade" id="bitplanes" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h3>8-Bit Plane Extraction</h3>
+                        <form id="bitplaneForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label class="form-label">Image File:</label>
+                                <input type="file" class="form-control" name="image_file" accept="image/*" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Extract Bit Planes</button>
+                        </form>
+                    </div>
+                    <div class="col-md-6">
+                        <div id="bitplaneResult" class="analysis-result d-none">
+                            <h4>Results:</h4>
+                            <div id="bitplaneImage"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Capacity Analysis Tab -->
+            <div class="tab-pane fade" id="capacity" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h3>Embedding Capacity Calculator</h3>
+                        <form id="capacityForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label class="form-label">File:</label>
+                                <input type="file" class="form-control" name="file" accept="image/*,audio/*" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">LSB Count:</label>
+                                <select class="form-control" name="lsb_count">
+                                    <option value="1">1 LSB</option>
+                                    <option value="2">2 LSBs</option>
+                                    <option value="3">3 LSBs</option>
+                                    <option value="4">4 LSBs</option>
+                                    <option value="5">5 LSBs</option>
+                                    <option value="6">6 LSBs</option>
+                                    <option value="7">7 LSBs</option>
+                                    <option value="8">8 LSBs</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Calculate Capacity</button>
+                        </form>
+                    </div>
+                    <div class="col-md-6">
+                        <div id="capacityResult" class="analysis-result d-none">
+                            <h4>Capacity Information:</h4>
+                            <div id="capacityData"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Steganalysis Tab -->
+            <div class="tab-pane fade" id="steganalysis" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h3>Steganalysis Detection</h3>
+                        <form id="steganalysisForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label class="form-label">Suspected File:</label>
+                                <input type="file" class="form-control" name="file" accept="image/*,audio/*" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Analyze for Hidden Data</button>
+                        </form>
+                    </div>
+                    <div class="col-md-6">
+                        <div id="steganalysisResult" class="analysis-result d-none">
+                            <h4>Detection Results:</h4>
+                            <div id="steganalysisData"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BPCS Complexity Tab -->
+        <div class="tab-pane fade" id="complexity" role="tabpanel">
+            <div class="row">
+                <div class="col-md-6">
+                    <h3>BPCS Complexity Analysis</h3>
+                    <form id="complexityForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label class="form-label">Image File:</label>
+                            <input type="file" class="form-control" name="image_file" accept="image/*" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Block Size:</label>
+                            <select class="form-control" name="block_size">
+                                <option value="8">8x8 blocks</option>
+                                <option value="4">4x4 blocks</option>
+                                <option value="16">16x16 blocks</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Complexity Threshold:</label>
+                            <input type="number" class="form-control" name="threshold" value="0.3" step="0.1" min="0" max="1">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Analyze Complexity</button>
+                    </form>
+                </div>
+                <div class="col-md-6">
+                    <div id="complexityResult" class="analysis-result d-none">
+                        <h4>Complexity Results:</h4>
+                        <div id="complexityData"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audio Analysis Tab -->
+            <div class="tab-pane fade" id="audio" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h3>Audio Waveform Comparison</h3>
+                        <form id="audioForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label class="form-label">Cover Audio:</label>
+                                <input type="file" class="form-control" name="cover_audio" accept="audio/*" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Stego Audio:</label>
+                                <input type="file" class="form-control" name="stego_audio" accept="audio/*" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Compare Waveforms</button>
+                        </form>
+                    </div>
+                    <div class="col-md-6">
+                        <div id="audioResult" class="analysis-result d-none">
+                            <h4>Audio Comparison Results:</h4>
+                            <div id="audioImage"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Back to Main Button -->
+        <div class="text-center mt-4">
+            <a href="/" class="btn btn-secondary">Back to Main Steganography Tool</a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // JavaScript for handling form submissions and displaying results
+        
+        // Difference Map Form
+        document.getElementById('differenceForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            try {
+                const response = await fetch('/analyze/difference_map', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('differenceResult').classList.remove('d-none');
+                    document.getElementById('differenceImage').innerHTML = 
+                        `<img src="data:image/png;base64,${result.difference_map}" class="result-image" alt="Difference Map">`;
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+
+        // Histogram Form
+        document.getElementById('histogramForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            try {
+                const response = await fetch('/analyze/histogram', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('histogramResult').classList.remove('d-none');
+                    document.getElementById('histogramImage').innerHTML = 
+                        `<img src="data:image/png;base64,${result.histogram_analysis}" class="result-image" alt="Histogram Analysis">`;
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+
+        // Bit Plane Form
+        document.getElementById('bitplaneForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            try {
+                const response = await fetch('/analyze/bit_planes', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('bitplaneResult').classList.remove('d-none');
+                    document.getElementById('bitplaneImage').innerHTML = 
+                        `<img src="data:image/png;base64,${result.bit_planes}" class="result-image" alt="Bit Plane Analysis">`;
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+
+        // Capacity Form
+        document.getElementById('capacityForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            try {
+                const response = await fetch('/analyze/capacity', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('capacityResult').classList.remove('d-none');
+                    const info = result.capacity_info;
+                    document.getElementById('capacityData').innerHTML = `
+                        <p><strong>File Type:</strong> ${info.file_type}</p>
+                        <p><strong>Dimensions:</strong> ${info.dimensions || 'N/A'}</p>
+                        <p><strong>Max Capacity:</strong> ${info.max_bytes_capacity} bytes (${info.max_kb_capacity.toFixed(2)} KB)</p>
+                        <p><strong>LSB Bits Used:</strong> ${info.lsb_bits_used}</p>
+                    `;
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+
+        // Steganalysis Form
+        document.getElementById('steganalysisForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            try {
+                const response = await fetch('/analyze/steganalysis', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('steganalysisResult').classList.remove('d-none');
+                    const analysis = result.steganalysis_results;
+                    document.getElementById('steganalysisData').innerHTML = `
+                        <p><strong>Detection Confidence:</strong> ${analysis.detection_confidence}</p>
+                        <p><strong>File Type:</strong> ${analysis.file_type}</p>
+                        <details>
+                            <summary>Detailed Analysis Results</summary>
+                            <pre>${JSON.stringify(analysis, null, 2)}</pre>
+                        </details>
+                    `;
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+
+        // Complexity Form
+        document.getElementById('complexityForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            try {
+                const response = await fetch('/analyze/complexity', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('complexityResult').classList.remove('d-none');
+                    const complexity = result.complexity_analysis;
+                    document.getElementById('complexityData').innerHTML = `
+                        <p><strong>Total Blocks:</strong> ${complexity.total_blocks}</p>
+                        <p><strong>Complex Blocks:</strong> ${complexity.complex_blocks}</p>
+                        <p><strong>Complexity Ratio:</strong> ${(complexity.complex_blocks / complexity.total_blocks * 100).toFixed(2)}%</p>
+                        <p><strong>Threshold Used:</strong> ${complexity.threshold}</p>
+                    `;
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+
+        // Audio Form
+        document.getElementById('audioForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            try {
+                const response = await fetch('/analyze/audio_comparison', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('audioResult').classList.remove('d-none');
+                    document.getElementById('audioImage').innerHTML = 
+                        `<img src="data:image/png;base64,${result.waveform_comparison}" class="result-image" alt="Audio Waveform Comparison">`;
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
