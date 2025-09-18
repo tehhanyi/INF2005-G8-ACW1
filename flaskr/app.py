@@ -4,6 +4,7 @@ import os
 import uuid
 import shutil
 import uuid
+import numpy as np 
 
 # Import your custom modules using absolute imports
 from modules.image_stego import encode_image, decode_image, calculate_image_capacity
@@ -101,6 +102,121 @@ def visualize():
     """Render the visualization/analysis page"""
     return render_template('visualize.html')
 
+# NEW: Comprehensive comparison route for visualization tab
+@app.route('/analyze/comprehensive_comparison', methods=['POST'])
+def comprehensive_comparison():
+    """Comprehensive side-by-side analysis of cover vs stego files"""
+    try:
+        cover_file = request.files.get('cover_file')
+        stego_file = request.files.get('stego_file')
+        
+        if not cover_file and not stego_file:
+            return jsonify({'error': 'At least one file must be provided'}), 400
+            
+        results = {
+            'analysis_type': None,
+            'cover_analysis': {},
+            'stego_analysis': {},
+            'comparison_analysis': {}
+        }
+        
+        # Save files and determine type
+        cover_path = None
+        stego_path = None
+        file_type = None
+        
+        if cover_file:
+            cover_filename = secure_filename(cover_file.filename)
+            cover_path = os.path.join(app.config['UPLOAD_FOLDER'], f"viz_cover_{uuid.uuid4().hex}_{cover_filename}")
+            cover_file.save(cover_path)
+            file_type = cover_filename.lower().split('.')[-1]
+            
+        if stego_file:
+            stego_filename = secure_filename(stego_file.filename)
+            stego_path = os.path.join(app.config['UPLOAD_FOLDER'], f"viz_stego_{uuid.uuid4().hex}_{stego_filename}")
+            stego_file.save(stego_path)
+            if not file_type:
+                file_type = stego_filename.lower().split('.')[-1]
+        
+        # Determine analysis type
+        if file_type in ['png', 'bmp', 'gif', 'jpg', 'jpeg']:
+            results['analysis_type'] = 'image'
+            
+            # Individual file analyses
+            if cover_path:
+                results['cover_analysis'] = {
+                    'histogram': create_histogram_analysis(cover_path),
+                    'bit_planes': extract_bit_planes(cover_path),
+                    'steganalysis': analyze_stego_detection(cover_path, file_type),
+                    'filename': cover_filename if cover_file else None
+                }
+                
+            if stego_path:
+                results['stego_analysis'] = {
+                    'histogram': create_histogram_analysis(stego_path),
+                    'bit_planes': extract_bit_planes(stego_path),
+                    'steganalysis': analyze_stego_detection(stego_path, file_type),
+                    'filename': stego_filename if stego_file else None
+                }
+            
+            # Comparison analyses (require both files)
+            if cover_path and stego_path:
+                results['comparison_analysis'] = {
+                    'difference_map': generate_difference_map(cover_path, stego_path),
+                    'histogram_comparison': create_histogram_analysis(cover_path, stego_path=stego_path)
+                }
+                
+        elif file_type in ['wav', 'mp3', 'pcm']:
+            results['analysis_type'] = 'audio'
+            
+            # Individual file analyses
+            if cover_path:
+                results['cover_analysis'] = {
+                    'steganalysis': analyze_stego_detection(cover_path, file_type),
+                    'filename': cover_filename if cover_file else None
+                }
+                
+            if stego_path:
+                results['stego_analysis'] = {
+                    'steganalysis': analyze_stego_detection(stego_path, file_type),
+                    'filename': stego_filename if stego_file else None
+                }
+            
+            # Audio comparison
+            if cover_path and stego_path:
+                results['comparison_analysis'] = {
+                    'waveform_comparison': create_waveform_comparison(cover_path, stego_path)
+                }
+        else:
+            return jsonify({'error': 'Unsupported file format'}), 400
+        
+        # Convert numpy types for JSON serialization
+        results = convert_numpy_types(results)
+        
+        return jsonify({
+            'success': True,
+            'visualization_results': results,
+            'message': f'Comprehensive {results["analysis_type"]} analysis completed'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def convert_numpy_types(obj):
+    """Convert numpy types to Python native types for JSON serialization"""
+    if isinstance(obj, dict):
+        return {k: convert_numpy_types(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    else:
+        return obj
+    
 @app.route('/analyze/difference_map', methods=['POST'])
 def difference_map():
     """Generate visual difference map between cover and stego images"""

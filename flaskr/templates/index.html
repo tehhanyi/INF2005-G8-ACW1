@@ -20,6 +20,59 @@
             border-color: #007bff;
             background-color: #f8f9fa;
         }
+        .file-status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 5px 0;
+        }
+        .file-available {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .file-missing {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .analysis-result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .result-image {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+            margin-top: 10px;
+        }
+        .file-analysis {
+            flex: 1;
+            min-width: 300px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        .comparison-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .loading-spinner {
+            text-align: center;
+            padding: 40px;
+        }
+        .upload-prompt {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
@@ -33,6 +86,9 @@
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="decode-tab" data-bs-toggle="tab" data-bs-target="#decode" type="button">Decode</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="visualize-tab" data-bs-toggle="tab" data-bs-target="#visualize" type="button">🔬 Visualize</button>
             </li>
         </ul>
 
@@ -121,10 +177,454 @@
                 <!-- Decode Results -->
                 <div id="decodeResults" class="mt-4"></div>
             </div>
+            
+            <!-- Enhanced Visualization Tab with Smart File Management -->
+            <div class="tab-pane fade" id="visualize" role="tabpanel">
+                
+                <!-- Smart File Status Display -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <h4>📁 Available Files</h4>
+                        <div id="fileStatusContainer">
+                            <div id="coverFileStatus" class="file-status file-missing">
+                                ❌ <strong>Cover File:</strong> Not available. Upload a file in the Encode tab first.
+                            </div>
+                            <div id="stegoFileStatus" class="file-status file-missing">
+                                ❌ <strong>Stego File:</strong> Not available. Encode a file or upload one in the Decode tab.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Optional File Upload (for missing files) -->
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div id="coverUploadSection" style="display: none;">
+                            <h6>📁 Upload Cover File</h6>
+                            <div class="drop-zone" id="coverVisualizationDropZone">
+                                <p>Drag & drop cover file here or click to browse</p>
+                                <input type="file" id="coverVisualizationFile" accept=".png,.bmp,.gif,.jpg,.jpeg,.wav,.mp3" style="display: none;">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div id="stegoUploadSection" style="display: none;">
+                            <h6>🔍 Upload Stego File</h6>
+                            <div class="drop-zone" id="stegoVisualizationDropZone">
+                                <p>Drag & drop stego file here or click to browse</p>
+                                <input type="file" id="stegoVisualizationFile" accept=".png,.bmp,.gif,.jpg,.jpeg,.wav,.mp3" style="display: none;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analysis Controls -->
+                <div class="row mt-4">
+                    <div class="col-12 text-center">
+                        <button class="btn btn-primary btn-lg" id="analyzeBtn" disabled>
+                            🔬 Generate Comprehensive Analysis
+                        </button>
+                        <p id="analysisStatusText" class="text-muted mt-2">No files available for analysis</p>
+                    </div>
+                </div>
+
+                <!-- Analysis Results -->
+                <div id="visualizationAnalysisResults" class="mt-4" style="display: none;">
+                    
+                    <!-- Comparison Analysis Section -->
+                    <div id="comparisonSection" class="mb-5" style="display: none;">
+                        <h3>📊 Comparison Analysis</h3>
+                        
+                        <!-- Difference Map -->
+                        <div id="differenceMapSection" class="analysis-result">
+                            <h5>🎯 Difference Map</h5>
+                            <div id="differenceMapDisplay"></div>
+                        </div>
+
+                        <!-- Histogram Comparison -->
+                        <div id="histogramComparisonSection" class="analysis-result">
+                            <h5>📈 Histogram Comparison</h5>
+                            <div id="histogramComparisonDisplay"></div>
+                        </div>
+
+                        <!-- Audio Waveform Comparison -->
+                        <div id="waveformSection" class="analysis-result" style="display: none;">
+                            <h5>🌊 Audio Waveform Comparison</h5>
+                            <div id="waveformDisplay"></div>
+                        </div>
+                    </div>
+
+                    <!-- Individual File Analysis -->
+                    <div id="individualAnalysisSection">
+                        <h3>🔍 Individual File Analysis</h3>
+                        <div class="comparison-container">
+                            
+                            <!-- Cover File Analysis -->
+                            <div class="file-analysis" id="coverAnalysisSection" style="display: none;">
+                                <h4>📁 Cover File Analysis</h4>
+                                <div id="coverFileName" class="text-muted mb-3"></div>
+                                
+                                <!-- Cover Histogram -->
+                                <div id="coverHistogramSection" class="mb-4">
+                                    <h6>📊 Histogram Analysis</h6>
+                                    <div id="coverHistogramDisplay"></div>
+                                </div>
+                                
+                                <!-- Cover Bit Planes -->
+                                <div id="coverBitPlanesSection" class="mb-4">
+                                    <h6>🔍 Bit Plane Analysis</h6>
+                                    <div id="coverBitPlanesDisplay"></div>
+                                </div>
+                                
+                                <!-- Cover Steganalysis -->
+                                <div id="coverSteganalysisSection" class="mb-4">
+                                    <h6>🎯 Steganalysis Detection</h6>
+                                    <div id="coverSteganalysisDisplay"></div>
+                                </div>
+                            </div>
+
+                            <!-- Stego File Analysis -->
+                            <div class="file-analysis" id="stegoAnalysisSection" style="display: none;">
+                                <h4>🔍 Stego File Analysis</h4>
+                                <div id="stegoFileName" class="text-muted mb-3"></div>
+                                
+                                <!-- Stego Histogram -->
+                                <div id="stegoHistogramSection" class="mb-4">
+                                    <h6>📊 Histogram Analysis</h6>
+                                    <div id="stegoHistogramDisplay"></div>
+                                </div>
+                                
+                                <!-- Stego Bit Planes -->
+                                <div id="stegoBitPlanesSection" class="mb-4">
+                                    <h6>🔍 Bit Plane Analysis</h6>
+                                    <div id="stegoBitPlanesDisplay"></div>
+                                </div>
+                                
+                                <!-- Stego Steganalysis -->
+                                <div id="stegoSteganalysisSection" class="mb-4">
+                                    <h6>🎯 Steganalysis Detection</h6>
+                                    <div id="stegoSteganalysisDisplay"></div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Link to Advanced Analysis -->
+        <div class="text-center mt-4">
+            <a href="/visualize" class="btn btn-outline-info">🔬 Advanced Standalone Analysis</a>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        // Global file management system
+        const FileManager = {
+            coverFile: null,
+            stegoFile: null,
+            coverFileName: null,
+            stegoFileName: null,
+            
+            setCoverFile: function(file, filename) {
+                this.coverFile = file;
+                this.coverFileName = filename;
+                this.updateFileStatus();
+            },
+            
+            setStegoFile: function(file, filename) {
+                this.stegoFile = file;
+                this.stegoFileName = filename;
+                this.updateFileStatus();
+            },
+            
+            updateFileStatus: function() {
+                this.updateCoverStatus();
+                this.updateStegoStatus();
+                this.updateAnalysisButton();
+            },
+            
+            updateCoverStatus: function() {
+                const statusDiv = document.getElementById('coverFileStatus');
+                const uploadSection = document.getElementById('coverUploadSection');
+                
+                if (this.coverFile) {
+                    statusDiv.className = 'file-status file-available';
+                    statusDiv.innerHTML = `✅ <strong>Cover File:</strong> ${this.coverFileName} (${(this.coverFile.size/1024).toFixed(1)} KB)`;
+                    if (uploadSection) uploadSection.style.display = 'none';
+                } else {
+                    statusDiv.className = 'file-status file-missing';
+                    statusDiv.innerHTML = `❌ <strong>Cover File:</strong> Not available. <button class="btn btn-sm btn-outline-primary ms-2" onclick="showCoverUpload()">Upload Now</button>`;
+                }
+            },
+            
+            updateStegoStatus: function() {
+                const statusDiv = document.getElementById('stegoFileStatus');
+                const uploadSection = document.getElementById('stegoUploadSection');
+                
+                if (this.stegoFile) {
+                    statusDiv.className = 'file-status file-available';
+                    statusDiv.innerHTML = `✅ <strong>Stego File:</strong> ${this.stegoFileName} (${(this.stegoFile.size/1024).toFixed(1)} KB)`;
+                    if (uploadSection) uploadSection.style.display = 'none';
+                } else {
+                    statusDiv.className = 'file-status file-missing';
+                    statusDiv.innerHTML = `❌ <strong>Stego File:</strong> Not available. <button class="btn btn-sm btn-outline-primary ms-2" onclick="showStegoUpload()">Upload Now</button>`;
+                }
+            },
+            
+            updateAnalysisButton: function() {
+                const analyzeBtn = document.getElementById('analyzeBtn');
+                const statusText = document.getElementById('analysisStatusText');
+                
+                if (analyzeBtn && statusText) {
+                    if (this.coverFile || this.stegoFile) {
+                        analyzeBtn.disabled = false;
+                        const fileCount = (this.coverFile ? 1 : 0) + (this.stegoFile ? 1 : 0);
+                        statusText.textContent = `Ready to analyze ${fileCount} file(s)!`;
+                        statusText.className = 'text-success mt-2';
+                    } else {
+                        analyzeBtn.disabled = true;
+                        statusText.textContent = 'No files available for analysis';
+                        statusText.className = 'text-muted mt-2';
+                    }
+                }
+            }
+        };
+
+        // Enhanced encode function that saves cover file
+        function enhancedEncodeHandler() {
+            const encodeBtn = document.getElementById('encodeBtn');
+            if (encodeBtn) {
+                encodeBtn.addEventListener('click', function() {
+                    // Save cover file for visualization
+                    const coverFile = document.getElementById('coverFile').files[0];
+                    if (coverFile) {
+                        FileManager.setCoverFile(coverFile, coverFile.name);
+                    }
+                });
+            }
+        }
+
+        // Enhanced decode function that saves stego file
+        function enhancedDecodeHandler() {
+            const decodeBtn = document.getElementById('decodeBtn');
+            if (decodeBtn) {
+                decodeBtn.addEventListener('click', function() {
+                    // Save stego file for visualization
+                    const stegoFile = document.getElementById('stegoFile').files[0];
+                    if (stegoFile) {
+                        FileManager.setStegoFile(stegoFile, stegoFile.name);
+                    }
+                });
+            }
+        }
+
+        // Show upload sections when needed
+        function showCoverUpload() {
+            const section = document.getElementById('coverUploadSection');
+            if (section) section.style.display = 'block';
+        }
+
+        function showStegoUpload() {
+            const section = document.getElementById('stegoUploadSection');
+            if (section) section.style.display = 'block';
+        }
+
+        // Handle manual file uploads in visualization tab
+        function setupVisualizationUploads() {
+            // Cover file upload
+            const coverDropZone = document.getElementById('coverVisualizationDropZone');
+            const coverFileInput = document.getElementById('coverVisualizationFile');
+            
+            if (coverDropZone && coverFileInput) {
+                coverDropZone.addEventListener('click', () => coverFileInput.click());
+                coverFileInput.addEventListener('change', (e) => {
+                    if (e.target.files[0]) {
+                        FileManager.setCoverFile(e.target.files[0], e.target.files[0].name);
+                    }
+                });
+            }
+
+            // Stego file upload
+            const stegoDropZone = document.getElementById('stegoVisualizationDropZone');
+            const stegoFileInput = document.getElementById('stegoVisualizationFile');
+            
+            if (stegoDropZone && stegoFileInput) {
+                stegoDropZone.addEventListener('click', () => stegoFileInput.click());
+                stegoFileInput.addEventListener('change', (e) => {
+                    if (e.target.files[0]) {
+                        FileManager.setStegoFile(e.target.files[0], e.target.files[0].name);
+                    }
+                });
+            }
+
+            // Analyze button
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            if (analyzeBtn) {
+                analyzeBtn.addEventListener('click', performSmartAnalysis);
+            }
+        }
+
+        // Smart analysis using available files
+        async function performSmartAnalysis() {
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const resultsSection = document.getElementById('visualizationAnalysisResults');
+            
+            analyzeBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Analyzing...`;
+            analyzeBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                
+                if (FileManager.coverFile) {
+                    formData.append('cover_file', FileManager.coverFile);
+                }
+                if (FileManager.stegoFile) {
+                    formData.append('stego_file', FileManager.stegoFile);
+                }
+
+                const response = await fetch('/analyze/comprehensive_comparison', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    displayVisualizationResults(result.visualization_results);
+                    resultsSection.style.display = 'block';
+                } else {
+                    throw new Error(result.error || 'Analysis failed');
+                }
+
+            } catch (error) {
+                alert('Analysis failed: ' + error.message);
+            } finally {
+                analyzeBtn.innerHTML = '🔬 Generate Comprehensive Analysis';
+                FileManager.updateAnalysisButton();
+            }
+        }
+
+        // Display visualization results
+        function displayVisualizationResults(results) {
+            const analysisType = results.analysis_type;
+            
+            // Show/hide audio-specific sections
+            if (analysisType === 'audio') {
+                const waveformSection = document.getElementById('waveformSection');
+                if (waveformSection) waveformSection.style.display = 'block';
+                
+                // Hide image-specific sections
+                document.querySelectorAll('[id*="BitPlanes"], [id*="Histogram"]').forEach(el => {
+                    if (!el.id.includes('waveform')) {
+                        el.style.display = 'none';
+                    }
+                });
+            }
+
+            // Display comparison analyses
+            if (results.comparison_analysis && Object.keys(results.comparison_analysis).length > 0) {
+                const comparisonSection = document.getElementById('comparisonSection');
+                if (comparisonSection) comparisonSection.style.display = 'block';
+                
+                if (results.comparison_analysis.difference_map) {
+                    const display = document.getElementById('differenceMapDisplay');
+                    if (display) {
+                        display.innerHTML = `
+                            <img src="data:image/png;base64,${results.comparison_analysis.difference_map}" class="result-image">
+                            <p class="text-muted mt-2">Pixel differences between cover and stego files (brighter = more change)</p>
+                        `;
+                    }
+                }
+                
+                if (results.comparison_analysis.histogram_comparison) {
+                    const display = document.getElementById('histogramComparisonDisplay');
+                    if (display) {
+                        display.innerHTML = `
+                            <img src="data:image/png;base64,${results.comparison_analysis.histogram_comparison}" class="result-image">
+                            <p class="text-muted mt-2">Side-by-side histogram comparison showing statistical changes</p>
+                        `;
+                    }
+                }
+                
+                if (results.comparison_analysis.waveform_comparison) {
+                    const display = document.getElementById('waveformDisplay');
+                    if (display) {
+                        display.innerHTML = `
+                            <img src="data:image/png;base64,${results.comparison_analysis.waveform_comparison}" class="result-image">
+                            <p class="text-muted mt-2">Audio waveform comparison before and after embedding</p>
+                        `;
+                    }
+                }
+            }
+
+            // Display individual file analyses
+            if (results.cover_analysis && Object.keys(results.cover_analysis).length > 0) {
+                displayIndividualFileAnalysis(results.cover_analysis, 'cover');
+            }
+            
+            if (results.stego_analysis && Object.keys(results.stego_analysis).length > 0) {
+                displayIndividualFileAnalysis(results.stego_analysis, 'stego');
+            }
+        }
+
+        function displayIndividualFileAnalysis(analysis, fileType) {
+            const section = document.getElementById(`${fileType}AnalysisSection`);
+            if (section) section.style.display = 'block';
+            
+            // Display filename
+            if (analysis.filename) {
+                const fileNameDiv = document.getElementById(`${fileType}FileName`);
+                if (fileNameDiv) fileNameDiv.textContent = analysis.filename;
+            }
+            
+            // Display histogram
+            if (analysis.histogram) {
+                const display = document.getElementById(`${fileType}HistogramDisplay`);
+                if (display) {
+                    display.innerHTML = `<img src="data:image/png;base64,${analysis.histogram}" class="result-image">`;
+                }
+            }
+            
+            // Display bit planes
+            if (analysis.bit_planes) {
+                const display = document.getElementById(`${fileType}BitPlanesDisplay`);
+                if (display) {
+                    display.innerHTML = `<img src="data:image/png;base64,${analysis.bit_planes}" class="result-image">`;
+                }
+            }
+            
+            // Display steganalysis
+            if (analysis.steganalysis) {
+                const confidence = analysis.steganalysis.detection_confidence || 'unknown';
+                const alertClass = confidence === 'high' ? 'alert-danger' : 
+                                  confidence === 'medium' ? 'alert-warning' : 'alert-success';
+                
+                const display = document.getElementById(`${fileType}SteganalysisDisplay`);
+                if (display) {
+                    display.innerHTML = `
+                        <div class="alert ${alertClass}">
+                            <strong>Detection Confidence:</strong> ${confidence.toUpperCase()}<br>
+                            <strong>Analysis:</strong> Statistical analysis ${confidence === 'high' ? 'strongly suggests' : confidence === 'medium' ? 'indicates possible' : 'shows minimal evidence of'} hidden data
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // Initialize everything when DOM loads
+        document.addEventListener('DOMContentLoaded', function() {
+            setupVisualizationUploads();
+            FileManager.updateFileStatus();
+            
+            // Set up cross-tab file tracking
+            enhancedEncodeHandler();
+            enhancedDecodeHandler();
+        });
+    </script>
 </body>
 </html>
+
