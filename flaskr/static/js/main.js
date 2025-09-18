@@ -29,8 +29,13 @@
 
   const capInfo = byId('capacityInfo');
   const coverInfo = byId('coverInfo');
+  const coverPreviewWrapper = byId('coverPreviewWrapper');
+  const coverPreview = byId('coverPreview');
+  const coverDetails = byId('coverDetails');
   const payloadInfo = byId('payloadInfo');
   const stegoInfo = byId('stegoInfo');
+
+  let previewSequence = 0;
 
   const encodeBtn = byId('encodeBtn');
   const decodeBtn = byId('decodeBtn');
@@ -39,7 +44,7 @@
   const decodeResults = byId('decodeResults');
 
   // Helpers
-  function setZoneHandlers(zone, input, infoBox) {
+  function setZoneHandlers(zone, input, infoBox, previewBox, detailsBox, previewContainer) {
     if (!zone || !input) return;
     zone.addEventListener('click', () => input.click());
     zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('bg-light'); });
@@ -49,18 +54,155 @@
       zone.classList.remove('bg-light');
       if (e.dataTransfer.files && e.dataTransfer.files.length) {
         input.files = e.dataTransfer.files;
-        showFileInfo(input, infoBox);
+        showFileInfo(input, infoBox, previewBox, detailsBox, previewContainer);
         if (input === coverInput) triggerCapacity();
       }
     });
-    input && input.addEventListener('change', () => { showFileInfo(input, infoBox); if (input === coverInput) triggerCapacity(); });
+    input && input.addEventListener('change', () => {
+      showFileInfo(input, infoBox, previewBox, detailsBox, previewContainer);
+      if (input === coverInput) triggerCapacity();
+    });
   }
 
-  function showFileInfo(input, infoBox) {
-    if (!infoBox) return;
+  function showFileInfo(input, infoBox, previewBox, detailsBox, previewContainer) {
     const f = input && input.files && input.files[0];
-    if (!f) { infoBox.textContent = ''; return; }
-    infoBox.textContent = `${f.name} • ${fmtBytes(f.size)}`;
+    if (!f) {
+      if (infoBox) infoBox.textContent = '';
+      if (previewContainer) previewContainer.style.display = 'none';
+      if (previewBox) hidePreview(previewBox);
+      if (detailsBox) hideDetails(detailsBox);
+      return;
+    }
+    if (infoBox) {
+      infoBox.innerHTML = `<div class="text-muted small">${f.name} - ${fmtBytes(f.size)}</div>`;
+    }
+    if (previewContainer) previewContainer.style.display = 'block';
+    if (previewBox || detailsBox) renderPreview(f, previewBox, detailsBox);
+  }
+
+  function hidePreview(box) {
+    if (!box) return;
+    delete box.dataset.previewToken;
+    box.innerHTML = '';
+    box.style.display = 'none';
+  }
+
+  function hideDetails(box) {
+    if (!box) return;
+    delete box.dataset.previewToken;
+    box.innerHTML = '';
+    box.style.display = 'none';
+    const wrap = document.getElementById('coverDetailsWrapper');
+    if (wrap) wrap.style.display = 'none';
+  }
+
+
+  function renderPreview(file, box, detailsBox) {
+    if (!file) return;
+    const token = String(++previewSequence);
+
+    if (detailsBox) {
+      detailsBox.dataset.previewToken = token;
+      renderDetails(file, detailsBox, {}, token);
+    }
+
+    if (!box) return;
+
+    box.dataset.previewToken = token;
+    box.innerHTML = '';
+    const type = (file.type || '').toLowerCase();
+
+    if (type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.className = 'img-fluid';
+      img.alt = `Preview of ${file.name}`;
+      box.appendChild(img);
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (box.dataset.previewToken === token) {
+          img.src = reader.result;
+        }
+      };
+      img.addEventListener('load', () => {
+        if (detailsBox && detailsBox.dataset.previewToken === token) {
+          const dims = `${img.naturalWidth} x ${img.naturalHeight}`;
+          renderDetails(file, detailsBox, { dimensions: dims }, token);
+        }
+      });
+      reader.readAsDataURL(file);
+      box.style.display = 'block';
+      return;
+    }
+
+    if (type.startsWith('audio/') || /\.wav$/i.test(file.name || '')) {
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      box.appendChild(audio);
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (box.dataset.previewToken === token) {
+          audio.src = reader.result;
+        }
+      };
+      audio.addEventListener('loadedmetadata', () => {
+        if (detailsBox && detailsBox.dataset.previewToken === token) {
+          const dur = formatDuration(audio.duration);
+          if (dur) renderDetails(file, detailsBox, { duration: dur }, token);
+        }
+      });
+      reader.readAsDataURL(file);
+      box.style.display = 'block';
+      return;
+    }
+
+    box.textContent = 'Preview not available for this file type.';
+    box.style.display = 'block';
+  }
+
+  function renderDetails(file, box, extra = {}, token) {
+    if (!box) return;
+    if (token && box.dataset.previewToken && box.dataset.previewToken !== token) return;
+    if (token) box.dataset.previewToken = token;
+
+    const rows = [];
+    const name = file.name || 'Unknown';
+    const type = file.type || inferTypeFromName(name);
+    rows.push({ label: 'File name', value: name });
+    rows.push({ label: 'File type', value: type });
+    if (Number.isFinite(file.size)) {
+      rows.push({ label: 'File size', value: fmtBytes(file.size) });
+    }
+    if (extra.dimensions) rows.push({ label: 'Dimensions', value: extra.dimensions });
+    if (extra.duration) rows.push({ label: 'Duration', value: extra.duration });
+
+    const bodyHtml = rows.map(({ label, value }) => {
+      return `<div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span class="detail-value">${escapeHtml(String(value))}</span></div>`;
+    }).join('');
+
+    box.innerHTML = bodyHtml;
+    const wrap = document.getElementById('coverDetailsWrapper');
+    if (wrap) wrap.style.display = 'block';
+    box.style.display = 'block';
+
+  }
+
+  function inferTypeFromName(name) {
+    if (!name) return 'Unknown';
+    const idx = name.lastIndexOf('.');
+    if (idx === -1 || idx === name.length - 1) return 'Unknown';
+    return name.slice(idx + 1).toUpperCase();
+  }
+
+  function formatDuration(totalSeconds) {
+    if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return null;
+    const seconds = Math.round(totalSeconds);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hours) {
+      return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+    return `${minutes}:${String(secs).padStart(2, '0')}`;
   }
 
   async function postForm(path, formData) {
@@ -169,7 +311,7 @@
   }
 
   // Wire up
-  setZoneHandlers(coverDrop, coverInput, coverInfo);
+  setZoneHandlers(coverDrop, coverInput, coverInfo, coverPreview, coverDetails, coverPreviewWrapper);
   setZoneHandlers(payloadDrop, payloadInput, payloadInfo);
   setZoneHandlers(stegoDrop, stegoInput, stegoInfo);
 
