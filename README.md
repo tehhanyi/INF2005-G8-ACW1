@@ -5,6 +5,8 @@ Encryption and Decryption for Group 8
 1. Install required packages:
 ```bash
 pip install -r requirements.txt
+pip install opencv-python
+pip install librosa
 ```
 
 2. Run:
