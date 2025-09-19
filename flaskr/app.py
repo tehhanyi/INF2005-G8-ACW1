@@ -217,263 +217,263 @@ def convert_numpy_types(obj):
     else:
         return obj
     
-@app.route('/analyze/difference_map', methods=['POST'])
-def difference_map():
-    """Generate visual difference map between cover and stego images"""
-    try:
-        cover_file = request.files['cover_file']
-        stego_file = request.files['stego_file']
+# @app.route('/analyze/difference_map', methods=['POST'])
+# def difference_map():
+#     """Generate visual difference map between cover and stego images"""
+#     try:
+#         cover_file = request.files['cover_file']
+#         stego_file = request.files['stego_file']
         
-        # Save uploaded files
-        cover_filename = secure_filename(cover_file.filename)
-        cover_path = os.path.join(app.config['UPLOAD_FOLDER'], f"cover_{uuid.uuid4().hex}_{cover_filename}")
-        cover_file.save(cover_path)
+#         # Save uploaded files
+#         cover_filename = secure_filename(cover_file.filename)
+#         cover_path = os.path.join(app.config['UPLOAD_FOLDER'], f"cover_{uuid.uuid4().hex}_{cover_filename}")
+#         cover_file.save(cover_path)
         
-        stego_filename = secure_filename(stego_file.filename)
-        stego_path = os.path.join(app.config['UPLOAD_FOLDER'], f"stego_{uuid.uuid4().hex}_{stego_filename}")
-        stego_file.save(stego_path)
+#         stego_filename = secure_filename(stego_file.filename)
+#         stego_path = os.path.join(app.config['UPLOAD_FOLDER'], f"stego_{uuid.uuid4().hex}_{stego_filename}")
+#         stego_file.save(stego_path)
         
-        # Generate difference map visualization
-        difference_img = generate_difference_map(cover_path, stego_path)
+#         # Generate difference map visualization
+#         difference_img = generate_difference_map(cover_path, stego_path)
         
-        if difference_img:
-            return jsonify({
-                'success': True,
-                'difference_map': difference_img,
-                'message': 'Difference map generated successfully'
-            })
-        else:
-            return jsonify({'error': 'Failed to generate difference map'}), 500
+#         if difference_img:
+#             return jsonify({
+#                 'success': True,
+#                 'difference_map': difference_img,
+#                 'message': 'Difference map generated successfully'
+#             })
+#         else:
+#             return jsonify({'error': 'Failed to generate difference map'}), 500
             
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
 
-@app.route('/analyze/histogram', methods=['POST']) 
-def histogram_analysis():
-    """Create multi-channel histogram analysis"""
-    try:
-        cover_file = request.files['cover_file']
-        stego_file = request.files.get('stego_file')  # Optional
+# @app.route('/analyze/histogram', methods=['POST']) 
+# def histogram_analysis():
+#     """Create multi-channel histogram analysis"""
+#     try:
+#         cover_file = request.files['cover_file']
+#         stego_file = request.files.get('stego_file')  # Optional
         
-        # Save cover file
-        cover_filename = secure_filename(cover_file.filename)
-        cover_path = os.path.join(app.config['UPLOAD_FOLDER'], f"hist_cover_{uuid.uuid4().hex}_{cover_filename}")
-        cover_file.save(cover_path)
+#         # Save cover file
+#         cover_filename = secure_filename(cover_file.filename)
+#         cover_path = os.path.join(app.config['UPLOAD_FOLDER'], f"hist_cover_{uuid.uuid4().hex}_{cover_filename}")
+#         cover_file.save(cover_path)
         
-        stego_path = None
-        if stego_file:
-            stego_filename = secure_filename(stego_file.filename)
-            stego_path = os.path.join(app.config['UPLOAD_FOLDER'], f"hist_stego_{uuid.uuid4().hex}_{stego_filename}")
-            stego_file.save(stego_path)
+#         stego_path = None
+#         if stego_file:
+#             stego_filename = secure_filename(stego_file.filename)
+#             stego_path = os.path.join(app.config['UPLOAD_FOLDER'], f"hist_stego_{uuid.uuid4().hex}_{stego_filename}")
+#             stego_file.save(stego_path)
         
-        # Generate histogram analysis
-        histogram_img = create_histogram_analysis(cover_path, stego_path=stego_path)
+#         # Generate histogram analysis
+#         histogram_img = create_histogram_analysis(cover_path, stego_path=stego_path)
         
-        if histogram_img:
-            return jsonify({
-                'success': True,
-                'histogram_analysis': histogram_img,
-                'message': 'Histogram analysis completed successfully'
-            })
-        else:
-            return jsonify({'error': 'Failed to generate histogram analysis'}), 500
+#         if histogram_img:
+#             return jsonify({
+#                 'success': True,
+#                 'histogram_analysis': histogram_img,
+#                 'message': 'Histogram analysis completed successfully'
+#             })
+#         else:
+#             return jsonify({'error': 'Failed to generate histogram analysis'}), 500
             
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
 
-@app.route('/analyze/bit_planes', methods=['POST'])
-def bit_plane_analysis():
-    """Extract and display all 8 bit planes"""
-    try:
-        image_file = request.files['image_file']
+# @app.route('/analyze/bit_planes', methods=['POST'])
+# def bit_plane_analysis():
+#     """Extract and display all 8 bit planes"""
+#     try:
+#         image_file = request.files['image_file']
         
-        # Save uploaded file
-        filename = secure_filename(image_file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"bitplane_{uuid.uuid4().hex}_{filename}")
-        image_file.save(file_path)
+#         # Save uploaded file
+#         filename = secure_filename(image_file.filename)
+#         file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"bitplane_{uuid.uuid4().hex}_{filename}")
+#         image_file.save(file_path)
         
-        # Extract bit planes
-        bit_planes_img = extract_bit_planes(file_path)
+#         # Extract bit planes
+#         bit_planes_img = extract_bit_planes(file_path)
         
-        if bit_planes_img:
-            return jsonify({
-                'success': True,
-                'bit_planes': bit_planes_img,
-                'message': 'Bit plane extraction completed successfully'
-            })
-        else:
-            return jsonify({'error': 'Failed to extract bit planes'}), 500
+#         if bit_planes_img:
+#             return jsonify({
+#                 'success': True,
+#                 'bit_planes': bit_planes_img,
+#                 'message': 'Bit plane extraction completed successfully'
+#             })
+#         else:
+#             return jsonify({'error': 'Failed to extract bit planes'}), 500
             
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
 
-@app.route('/analyze/complexity', methods=['POST'])
-def complexity_analysis():
-    """Perform BPCS complexity analysis"""
-    try:
-        image_file = request.files['image_file']
-        threshold = float(request.form.get('threshold', 0.3))
-        block_size = int(request.form.get('block_size', 8))
+# @app.route('/analyze/complexity', methods=['POST'])
+# def complexity_analysis():
+#     """Perform BPCS complexity analysis"""
+#     try:
+#         image_file = request.files['image_file']
+#         threshold = float(request.form.get('threshold', 0.3))
+#         block_size = int(request.form.get('block_size', 8))
         
-        # Save uploaded file
-        filename = secure_filename(image_file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"complex_{uuid.uuid4().hex}_{filename}")
-        image_file.save(file_path)
+#         # Save uploaded file
+#         filename = secure_filename(image_file.filename)
+#         file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"complex_{uuid.uuid4().hex}_{filename}")
+#         image_file.save(file_path)
         
-        # Analyze complexity
-        complexity_results = analyze_complexity_segments(file_path, block_size, threshold)
+#         # Analyze complexity
+#         complexity_results = analyze_complexity_segments(file_path, block_size, threshold)
         
-        if complexity_results:
-            return jsonify({
-                'success': True,
-                'complexity_analysis': complexity_results,
-                'message': 'Complexity analysis completed successfully'
-            })
-        else:
-            return jsonify({'error': 'Failed to analyze complexity'}), 500
+#         if complexity_results:
+#             return jsonify({
+#                 'success': True,
+#                 'complexity_analysis': complexity_results,
+#                 'message': 'Complexity analysis completed successfully'
+#             })
+#         else:
+#             return jsonify({'error': 'Failed to analyze complexity'}), 500
             
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
 
-@app.route('/analyze/capacity', methods=['POST'])
-def capacity_analysis():
-    """Calculate detailed capacity information"""
-    try:
-        file = request.files['file']
-        lsb_count = int(request.form.get('lsb_count', 1))
+# @app.route('/analyze/capacity', methods=['POST'])
+# def capacity_analysis():
+#     """Calculate detailed capacity information"""
+#     try:
+#         file = request.files['file']
+#         lsb_count = int(request.form.get('lsb_count', 1))
         
-        # Save uploaded file
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"capacity_{uuid.uuid4().hex}_{filename}")
-        file.save(file_path)
+#         # Save uploaded file
+#         filename = secure_filename(file.filename)
+#         file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"capacity_{uuid.uuid4().hex}_{filename}")
+#         file.save(file_path)
         
-        # Determine file type
-        file_ext = filename.lower().split('.')[-1]
+#         # Determine file type
+#         file_ext = filename.lower().split('.')[-1]
         
-        # Calculate capacity using visualization module
-        capacity_info = calculate_capacity_info(file_path, file_ext, lsb_count)
+#         # Calculate capacity using visualization module
+#         capacity_info = calculate_capacity_info(file_path, file_ext, lsb_count)
         
-        if capacity_info:
-            return jsonify({
-                'success': True,
-                'capacity_info': capacity_info,
-                'message': 'Capacity analysis completed successfully'
-            })
-        else:
-            return jsonify({'error': 'Failed to calculate capacity'}), 500
+#         if capacity_info:
+#             return jsonify({
+#                 'success': True,
+#                 'capacity_info': capacity_info,
+#                 'message': 'Capacity analysis completed successfully'
+#             })
+#         else:
+#             return jsonify({'error': 'Failed to calculate capacity'}), 500
             
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
 
-@app.route('/analyze/steganalysis', methods=['POST'])
-def steganalysis_detection():
-    """Perform comprehensive steganalysis detection"""
-    try:
-        file = request.files['file']
+# @app.route('/analyze/steganalysis', methods=['POST'])
+# def steganalysis_detection():
+#     """Perform comprehensive steganalysis detection"""
+#     try:
+#         file = request.files['file']
         
-        # Save uploaded file
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"steg_{uuid.uuid4().hex}_{filename}")
-        file.save(file_path)
+#         # Save uploaded file
+#         filename = secure_filename(file.filename)
+#         file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"steg_{uuid.uuid4().hex}_{filename}")
+#         file.save(file_path)
         
-        # Determine file type
-        file_ext = filename.lower().split('.')[-1]
+#         # Determine file type
+#         file_ext = filename.lower().split('.')[-1]
         
-        # Perform steganalysis
-        analysis_results = analyze_stego_detection(file_path, file_ext)
+#         # Perform steganalysis
+#         analysis_results = analyze_stego_detection(file_path, file_ext)
         
-        if analysis_results:
-            return jsonify({
-                'success': True,
-                'steganalysis_results': analysis_results,
-                'message': 'Steganalysis detection completed successfully'
-            })
-        else:
-            return jsonify({'error': 'Failed to perform steganalysis'}), 500
+#         if analysis_results:
+#             return jsonify({
+#                 'success': True,
+#                 'steganalysis_results': analysis_results,
+#                 'message': 'Steganalysis detection completed successfully'
+#             })
+#         else:
+#             return jsonify({'error': 'Failed to perform steganalysis'}), 500
             
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
 
-@app.route('/analyze/audio_comparison', methods=['POST'])
-def audio_waveform_analysis():
-    """Compare audio waveforms before and after embedding"""
-    try:
-        cover_audio = request.files['cover_audio']
-        stego_audio = request.files['stego_audio']
+# @app.route('/analyze/audio_comparison', methods=['POST'])
+# def audio_waveform_analysis():
+#     """Compare audio waveforms before and after embedding"""
+#     try:
+#         cover_audio = request.files['cover_audio']
+#         stego_audio = request.files['stego_audio']
         
-        # Save uploaded files
-        cover_filename = secure_filename(cover_audio.filename)
-        cover_path = os.path.join(app.config['UPLOAD_FOLDER'], f"audio_cover_{uuid.uuid4().hex}_{cover_filename}")
-        cover_audio.save(cover_path)
+#         # Save uploaded files
+#         cover_filename = secure_filename(cover_audio.filename)
+#         cover_path = os.path.join(app.config['UPLOAD_FOLDER'], f"audio_cover_{uuid.uuid4().hex}_{cover_filename}")
+#         cover_audio.save(cover_path)
         
-        stego_filename = secure_filename(stego_audio.filename)
-        stego_path = os.path.join(app.config['UPLOAD_FOLDER'], f"audio_stego_{uuid.uuid4().hex}_{stego_filename}")
-        stego_audio.save(stego_path)
+#         stego_filename = secure_filename(stego_audio.filename)
+#         stego_path = os.path.join(app.config['UPLOAD_FOLDER'], f"audio_stego_{uuid.uuid4().hex}_{stego_filename}")
+#         stego_audio.save(stego_path)
         
-        # Generate waveform comparison
-        waveform_img = create_waveform_comparison(cover_path, stego_path)
+#         # Generate waveform comparison
+#         waveform_img = create_waveform_comparison(cover_path, stego_path)
         
-        if waveform_img:
-            return jsonify({
-                'success': True,
-                'waveform_comparison': waveform_img,
-                'message': 'Audio waveform comparison completed successfully'
-            })
-        else:
-            return jsonify({'error': 'Failed to generate waveform comparison'}), 500
+#         if waveform_img:
+#             return jsonify({
+#                 'success': True,
+#                 'waveform_comparison': waveform_img,
+#                 'message': 'Audio waveform comparison completed successfully'
+#             })
+#         else:
+#             return jsonify({'error': 'Failed to generate waveform comparison'}), 500
             
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
 
-@app.route('/analyze/comprehensive', methods=['POST'])
-def comprehensive_analysis():
-    """Perform comprehensive analysis with all available tools"""
-    try:
-        cover_file = request.files['cover_file']
-        stego_file = request.files.get('stego_file')
-        analysis_type = request.form.get('analysis_type', 'image')
+# @app.route('/analyze/comprehensive', methods=['POST'])
+# def comprehensive_analysis():
+#     """Perform comprehensive analysis with all available tools"""
+#     try:
+#         cover_file = request.files['cover_file']
+#         stego_file = request.files.get('stego_file')
+#         analysis_type = request.form.get('analysis_type', 'image')
         
-        # Save cover file
-        cover_filename = secure_filename(cover_file.filename)
-        cover_path = os.path.join(app.config['UPLOAD_FOLDER'], f"comp_cover_{uuid.uuid4().hex}_{cover_filename}")
-        cover_file.save(cover_path)
+#         # Save cover file
+#         cover_filename = secure_filename(cover_file.filename)
+#         cover_path = os.path.join(app.config['UPLOAD_FOLDER'], f"comp_cover_{uuid.uuid4().hex}_{cover_filename}")
+#         cover_file.save(cover_path)
         
-        stego_path = None
-        if stego_file:
-            stego_filename = secure_filename(stego_file.filename)
-            stego_path = os.path.join(app.config['UPLOAD_FOLDER'], f"comp_stego_{uuid.uuid4().hex}_{stego_filename}")
-            stego_file.save(stego_path)
+#         stego_path = None
+#         if stego_file:
+#             stego_filename = secure_filename(stego_file.filename)
+#             stego_path = os.path.join(app.config['UPLOAD_FOLDER'], f"comp_stego_{uuid.uuid4().hex}_{stego_filename}")
+#             stego_file.save(stego_path)
         
-        # Perform comprehensive analysis
-        results = {}
+#         # Perform comprehensive analysis
+#         results = {}
         
-        if analysis_type == 'image':
-            # Image-specific analyses
-            results['histogram_analysis'] = create_histogram_analysis(cover_path, stego_path=stego_path)
-            results['bit_planes'] = extract_bit_planes(cover_path)
-            results['capacity_info'] = calculate_capacity_info(cover_path, 'png')
-            results['steganalysis'] = analyze_stego_detection(cover_path, 'png')
-            results['complexity_analysis'] = analyze_complexity_segments(cover_path)
+#         if analysis_type == 'image':
+#             # Image-specific analyses
+#             results['histogram_analysis'] = create_histogram_analysis(cover_path, stego_path=stego_path)
+#             results['bit_planes'] = extract_bit_planes(cover_path)
+#             results['capacity_info'] = calculate_capacity_info(cover_path, 'png')
+#             results['steganalysis'] = analyze_stego_detection(cover_path, 'png')
+#             results['complexity_analysis'] = analyze_complexity_segments(cover_path)
             
-            if stego_path:
-                results['difference_map'] = generate_difference_map(cover_path, stego_path)
+#             if stego_path:
+#                 results['difference_map'] = generate_difference_map(cover_path, stego_path)
                 
-        elif analysis_type == 'audio':
-            # Audio-specific analyses
-            results['capacity_info'] = calculate_capacity_info(cover_path, 'wav')
-            results['steganalysis'] = analyze_stego_detection(cover_path, 'wav')
+#         elif analysis_type == 'audio':
+#             # Audio-specific analyses
+#             results['capacity_info'] = calculate_capacity_info(cover_path, 'wav')
+#             results['steganalysis'] = analyze_stego_detection(cover_path, 'wav')
             
-            if stego_path:
-                results['waveform_comparison'] = create_waveform_comparison(cover_path, stego_path)
+#             if stego_path:
+#                 results['waveform_comparison'] = create_waveform_comparison(cover_path, stego_path)
         
-        return jsonify({
-            'success': True,
-            'comprehensive_results': results,
-            'message': 'Comprehensive analysis completed successfully'
-        })
+#         return jsonify({
+#             'success': True,
+#             'comprehensive_results': results,
+#             'message': 'Comprehensive analysis completed successfully'
+#         })
         
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
     
 @app.route('/decode', methods=['POST'])
 def decode():
