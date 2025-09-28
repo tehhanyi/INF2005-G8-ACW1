@@ -5,7 +5,7 @@ import uuid
 import shutil
 import uuid
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 # Import your custom modules using absolute imports
 from modules.image_stego import encode_image, decode_image, parse_start_location
@@ -571,7 +571,8 @@ def calculate_capacity():
                 except Exception:
                     pass
                 with Image.open(cover_file) as img:
-                    w, h = img.size
+                    img2 = ImageOps.exif_transpose(img)
+                    w, h = img2.size
                 total_carriers = w * h * 3
                 try:
                     start_offset = parse_start_location(start_input, w, h)

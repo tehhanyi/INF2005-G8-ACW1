@@ -2,7 +2,7 @@ import matplotlib
 matplotlib.use('Agg')  # Use non-GUI backend
 import matplotlib.pyplot as plt
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 import io
 import base64
 import cv2
@@ -14,16 +14,11 @@ import soundfile as sf
 def generate_difference_map(cover_path, stego_path):
     """Generate visual difference map between cover and stego images"""
     try:
-        # Read images
-        cover_img = cv2.imread(cover_path)
-        stego_img = cv2.imread(stego_path)
-        
-        if cover_img is None or stego_img is None:
-            return None
-            
-        # Convert to RGB for proper display
-        cover_rgb = cv2.cvtColor(cover_img, cv2.COLOR_BGR2RGB)
-        stego_rgb = cv2.cvtColor(stego_img, cv2.COLOR_BGR2RGB)
+        # Read images with EXIF orientation respected
+        with Image.open(cover_path) as cim:
+            cover_rgb = np.array(ImageOps.exif_transpose(cim).convert('RGB'))
+        with Image.open(stego_path) as sim:
+            stego_rgb = np.array(ImageOps.exif_transpose(sim).convert('RGB'))
         
         # Calculate absolute difference
         diff_img = np.abs(cover_rgb.astype(np.int16) - stego_rgb.astype(np.int16))

@@ -128,6 +128,48 @@
           const dims = `${img.naturalWidth} x ${img.naturalHeight}`;
           renderDetails(file, detailsBox, { dimensions: dims }, token);
         }
+
+        // If this is the cover preview, enable click-to-set start location
+        if (box === coverPreview && startInput) {
+          // Ensure container allows absolute positioning of marker
+          box.style.position = box.style.position || 'relative';
+
+          // Remove any existing marker
+          const old = box.querySelector('.click-marker');
+          if (old) old.remove();
+
+          // Create a reusable marker element
+          const marker = document.createElement('div');
+          marker.className = 'click-marker';
+          box.appendChild(marker);
+
+          function placeMarkerFromImageEvent(e) {
+            // Coordinates relative to the IMG element
+            const relX = e.offsetX;
+            const relY = e.offsetY;
+            const scaleX = img.naturalWidth / img.clientWidth;
+            const scaleY = img.naturalHeight / img.clientHeight;
+            const x = Math.max(0, Math.min(img.naturalWidth - 1, Math.floor(relX * scaleX)));
+            const y = Math.max(0, Math.min(img.naturalHeight - 1, Math.floor(relY * scaleY)));
+
+            // Position marker relative to the preview box, accounting for image offset
+            const dispX = img.offsetLeft + Math.max(0, Math.min(img.clientWidth - 1, relX));
+            const dispY = img.offsetTop + Math.max(0, Math.min(img.clientHeight - 1, relY));
+            marker.style.left = `${dispX}px`;
+            marker.style.top = `${dispY}px`;
+            marker.title = `(${x}, ${y})`;
+
+            // Update input and capacity
+            startInput.value = `${x},${y}`;
+            try { triggerCapacity(); } catch {}
+          }
+
+          // Click handler strictly on image (avoid container clicks)
+          img.style.cursor = 'crosshair';
+          img.addEventListener('click', (e) => {
+            placeMarkerFromImageEvent(e);
+          });
+        }
       });
       reader.readAsDataURL(file);
       box.style.display = 'block';

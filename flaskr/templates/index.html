@@ -104,6 +104,7 @@
         }
         .cover-preview {
             display: none;
+            position: relative; /* allow absolute marker positioning */
         }
         .cover-preview img {
             max-width: 100%;
@@ -125,6 +126,18 @@
 
         .cover-details-wrapper {
             margin-top: 10px; /* align with preview wrapper */
+        }
+
+        /* Click marker shown on image when selecting start location */
+        .click-marker {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid #0d6efd; /* Bootstrap primary */
+            background-color: rgba(13, 110, 253, 0.2);
+            transform: translate(-50%, -50%);
+            pointer-events: none; /* let clicks pass through to image */
         }
 
         .cover-details .details-title {
@@ -466,6 +479,7 @@
                 this.updateCoverStatus();
                 this.updateStegoStatus();
                 this.updateAnalysisButton();
+                if (typeof toggleStegoReplaceButtons === 'function') toggleStegoReplaceButtons();
             },
             
             updateCoverStatus: function() {
@@ -554,6 +568,40 @@
             if (section) section.style.display = 'block';
         }
 
+        // Button to replace stego on the visualize tab
+        function ensureStegoButtons() {
+            const statusContainer = document.getElementById('fileStatusContainer');
+            if (!statusContainer) return {};
+            let replaceBtn = document.getElementById('replaceStegoBtn');
+            if (!replaceBtn) {
+                const wrap = document.createElement('div');
+                wrap.className = 'mt-2';
+                replaceBtn = document.createElement('button');
+                replaceBtn.id = 'replaceStegoBtn';
+                replaceBtn.className = 'btn btn-sm btn-outline-secondary me-2';
+                replaceBtn.textContent = 'Replace Stego';
+                wrap.appendChild(replaceBtn);
+                statusContainer.appendChild(wrap);
+            }
+            // Ensure handlers are connected
+            replaceBtn.onclick = chooseNewStego;
+            return { replaceBtn };
+        }
+
+        function toggleStegoReplaceButtons() {
+            const { replaceBtn } = ensureStegoButtons();
+            if (!replaceBtn) return;
+            const hasStego = !!(FileManager && FileManager.stegoFile);
+            replaceBtn.style.display = hasStego ? 'inline-block' : 'none';
+        }
+
+        function chooseNewStego() {
+            const input = document.getElementById('stegoVisualizationFile');
+            if (input) input.click();
+        }
+
+        // No clear button required
+
         // Handle manual file uploads in visualization tab
         function setupVisualizationUploads() {
             // Cover file upload
@@ -575,9 +623,21 @@
             
             if (stegoDropZone && stegoFileInput) {
                 stegoDropZone.addEventListener('click', () => stegoFileInput.click());
+                stegoDropZone.addEventListener('dragover', (e) => { e.preventDefault(); stegoDropZone.classList.add('bg-light'); });
+                stegoDropZone.addEventListener('dragleave', () => stegoDropZone.classList.remove('bg-light'));
+                stegoDropZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    stegoDropZone.classList.remove('bg-light');
+                    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+                        const f = e.dataTransfer.files[0];
+                        FileManager.setStegoFile(f, f.name);
+                        toggleStegoReplaceButtons();
+                    }
+                });
                 stegoFileInput.addEventListener('change', (e) => {
                     if (e.target.files[0]) {
                         FileManager.setStegoFile(e.target.files[0], e.target.files[0].name);
+                        toggleStegoReplaceButtons();
                     }
                 });
             }
@@ -740,6 +800,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             setupVisualizationUploads();
             FileManager.updateFileStatus();
+            toggleStegoReplaceButtons();
             
             // Set up cross-tab file tracking
             enhancedEncodeHandler();
