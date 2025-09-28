@@ -115,7 +115,16 @@ def encode_image(cover_path, payload_path, key, lsb_count, start_location):
             break
 
     cover_ext = os.path.splitext(cover_path)[1].lower().lstrip('.')
-    out_fmt, out_ext = ('PNG', 'png') if cover_ext != 'bmp' else ('BMP', 'bmp')
+    supported_formats = {
+        'jpg': 'JPEG',
+        'jpeg': 'JPEG',
+        'gif': 'GIF',
+        'png': 'PNG',
+        'bmp': 'BMP'
+    }
+    out_fmt = supported_formats.get(cover_ext, 'PNG')
+    out_ext = cover_ext if cover_ext in supported_formats else 'png'
+    # out_fmt, out_ext = ('PNG', 'png') if cover_ext != 'bmp' else ('BMP', 'bmp')
     stego_name = f"stego_{os.path.splitext(os.path.basename(cover_path))[0]}.{out_ext}"
     stego_path = os.path.join(os.path.dirname(cover_path), stego_name)
     Image.frombytes("RGB", (w, h), bytes(carrier)).save(stego_path, format=out_fmt)
