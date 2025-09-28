@@ -21,11 +21,11 @@
 
   const lsbCount = byId('lsbCount');
   const keyInput = byId('secretKey');
-  const startInput = byId('startLocation');
+  const startInput = byId('startLocation'); // may be null (removed); we manage start via key or click
 
   const decodeLsb = byId('decodeLsbCount');
   const decodeKey = byId('decodeKey');
-  const decodeStart = byId('decodeStartLocation');
+  const decodeStart = byId('decodeStartLocation'); // removed in UI; keep reference null-safe
 
   const capInfo = byId('capacityInfo');
   const coverInfo = byId('coverInfo');
@@ -38,6 +38,8 @@
   const decodeStartLabel = byId('decodeStartLocationLabel');
 
   let previewSequence = 0;
+  let selectedXY = null; // current image selection (x,y) for cover
+  const copyBtn = byId('copyKeyBtn');
 
   const encodeBtn = byId('encodeBtn');
   const decodeBtn = byId('decodeBtn');
@@ -57,36 +59,46 @@
     return !!file && (/\.wav$/i.test(name) || type === 'audio/wav' || type === 'audio/x-wav');
   }
 
-  function updateStartUiForCover(file) {
-    if (isWavFile(file)) {
-      if (startLabel) startLabel.textContent = 'Start Location (slots)';
-      if (startInput) {
-        startInput.placeholder = 'integer slots, e.g. 88200';
-        if (!/^\s*\d+\s*$/.test(startInput.value || '')) startInput.value = '0';
-      }
-    } else if (isImageFile(file)) {
-      if (startLabel) startLabel.textContent = 'Start Location (x,y)';
-      if (startInput) {
-        startInput.placeholder = 'e.g. 45,60';
-        if (!/^\s*\d+\s*,\s*\d+\s*$/.test(startInput.value || '')) startInput.value = '0,0';
-      }
-    }
+  function updateStartUiForCover(file) {}
+
+  function updateStartUiForStego(file) { /* no-op: decode start taken from key */ }
+
+  function parseImageStartFromKey(keyStr) {
+    if (!keyStr) return null;
+    const at = keyStr.indexOf('@');
+    if (at === -1) return null;
+    let start = keyStr.slice(at + 1);
+    if (start.startsWith('@')) start = start.replace(/^@+/, '');
+    const m = /^\s*(\d+)\s*,\s*(\d+)\s*$/.exec(start);
+    if (!m) return null;
+    return [parseInt(m[1], 10), parseInt(m[2], 10)];
   }
 
-  function updateStartUiForStego(file) {
-    if (isWavFile(file)) {
-      if (decodeStartLabel) decodeStartLabel.textContent = 'Start Location (slots)';
-      if (decodeStart) {
-        decodeStart.placeholder = 'integer slots, e.g. 88200';
-        if (!/^\s*\d+\s*$/.test(decodeStart.value || '')) decodeStart.value = '0';
-      }
-    } else if (isImageFile(file)) {
-      if (decodeStartLabel) decodeStartLabel.textContent = 'Start Location (x,y)';
-      if (decodeStart) {
-        decodeStart.placeholder = 'e.g. 45,60';
-        if (!/^\s*\d+\s*,\s*\d+\s*$/.test(decodeStart.value || '')) decodeStart.value = '0,0';
+  function computeImageStart(coverFile) {
+    // priority: key-embedded -> selectedXY -> 0,0
+    const keyVal = keyInput && keyInput.value || '';
+    const fromKey = parseImageStartFromKey(keyVal);
+    if (fromKey) return `${fromKey[0]},${fromKey[1]}`;
+    if (selectedXY) return `${selectedXY[0]},${selectedXY[1]}`;
+    return '0,0';
+  }
+
+  function computeStartParam(file) {
+    if (isImageFile(file)) return computeImageStart(file);
+    // audio or others: numeric
+    const keyVal = keyInput && keyInput.value || '';
+    // Extract @N if present
+    const at = keyVal.indexOf('@');
+    if (at !== -1) {
+      const rest = keyVal.slice(at + 1);
+      if (!rest.includes(',')) {
+        const n = parseInt(rest, 10);
+        if (Number.isFinite(n) && n >= 0) return String(n);
       }
     }
+    // fallback to text box if present
+    if (startInput && /^\s*\d+\s*$/.test(startInput.value || '')) return startInput.value.trim();
+    return '0';
   }
 
   // Move cover marker when user types (x,y)
@@ -218,7 +230,7 @@
         }
 
         // If this is the cover preview, enable click-to-set start location
-        if (box === coverPreview && startInput) {
+        if (box === coverPreview) {
           // Ensure container allows absolute positioning of marker
           box.style.position = box.style.position || 'relative';
 
@@ -247,8 +259,8 @@
             marker.style.top = `${dispY}px`;
             marker.title = `(${x}, ${y})`;
 
-            // Update input and capacity
-            startInput.value = `${x},${y}`;
+            // Remember selection; do not mutate the key here
+            selectedXY = [x, y];
             try { triggerCapacity(); } catch {}
           }
 
@@ -257,6 +269,17 @@
           img.addEventListener('click', (e) => {
             placeMarkerFromImageEvent(e);
           });
+
+          // If key already contains x,y (or we have a previous selection), show marker initially
+          try {
+            const fromKey = parseImageStartFromKey(keyInput && keyInput.value);
+            if (fromKey && Array.isArray(fromKey)) {
+              selectedXY = fromKey;
+              moveCoverMarkerToXY(fromKey[0], fromKey[1]);
+            } else if (selectedXY && Array.isArray(selectedXY)) {
+              moveCoverMarkerToXY(selectedXY[0], selectedXY[1]);
+            }
+          } catch {}
         }
       });
       reader.readAsDataURL(file);
@@ -365,9 +388,7 @@
     const f = coverInput.files && coverInput.files[0];
     const lsb = parseInt(lsbCount.value || '1', 10);
     const isImg = isImageFile(f);
-    const defaultStart = isImg ? '0,0' : '0';
-    const startRaw = (startInput && startInput.value ? startInput.value : defaultStart).trim();
-    const start = startRaw === '' ? defaultStart : startRaw;
+    const start = isImg ? computeImageStart(f) : computeStartParam(f);
     if (!f || !lsb) return;
     const fd = new FormData();
     fd.append('cover_file', f);
@@ -400,18 +421,13 @@
     const key = keyInput.value.trim();
     const lsb = parseInt(lsbCount.value || '1', 10);
     const isImg = isImageFile(cover);
-    const defaultStart = isImg ? '0,0' : '0';
-    const startRaw = (startInput && startInput.value ? startInput.value : defaultStart).trim();
-    const start = startRaw === '' ? defaultStart : startRaw;
+    const start = isImg ? computeImageStart(cover) : computeStartParam(cover);
     if (!cover) { encodeResults.textContent = 'Please select a cover file.'; return; }
     if (!payload && !payloadTextVal) { encodeResults.textContent = 'Please select a payload file or enter payload text.'; return; }
     if (!key) { encodeResults.textContent = 'Please enter a key.'; return; }
 
     // If cover is an image, enforce (x,y) format
-    if (isImg && !/^\s*\d+\s*,\s*\d+\s*$/.test(start)) {
-      // Quietly abort; capacity area already shows the validation error
-      return;
-    }
+    if (isImg && !/^\s*\d+\s*,\s*\d+\s*$/.test(start)) { return; }
     if (!isImg && !/^\s*\d+\s*$/.test(start)) {
       encodeResults.textContent = 'Start Location must be a whole number for audio files.';
       return;
@@ -429,6 +445,14 @@
     try {
       const data = await postForm('/encode', fd);
       renderJSON(encodeResults, data);
+      // If encoding succeeded and returned start_xy, ensure the key reflects it
+      if (data && isImg && Array.isArray(data.start_xy) && data.start_xy.length === 2 && keyInput) {
+        const hasAt = (keyInput.value || '').includes('@');
+        const xyText = `${data.start_xy[0]},${data.start_xy[1]}`;
+        if (!hasAt) {
+          keyInput.value = `${keyInput.value || ''}@${xyText}`;
+        }
+      }
       if (data && data.stego_url) {
         const a = document.createElement('a');
         a.href = data.stego_url; a.textContent = 'Download stego file'; a.className = 'btn btn-link p-0';
@@ -446,21 +470,32 @@
     const key = decodeKey.value.trim();
     const lsb = parseInt(decodeLsb.value || '1', 10);
     const isImgStego = isImageFile(stego);
-    const defaultStart = isImgStego ? '0,0' : '0';
-    const startRaw = (decodeStart && decodeStart.value ? decodeStart.value : defaultStart).trim();
-    const start = startRaw === '' ? defaultStart : startRaw;
+    let start;
+    if (isImgStego) {
+      const xy = parseImageStartFromKey(decodeKey.value || '');
+      start = xy ? `${xy[0]},${xy[1]}` : '0,0';
+    } else {
+      // audio slots: try KEY@N, else 0
+      const keyStr = decodeKey.value || '';
+      const at = keyStr.indexOf('@');
+      if (at !== -1) {
+        const rest = keyStr.slice(at + 1);
+        if (!rest.includes(',')) {
+          const n = parseInt(rest, 10);
+          start = Number.isFinite(n) && n >= 0 ? String(n) : '0';
+        } else {
+          start = '0';
+        }
+      } else {
+        start = '0';
+      }
+    }
     if (!stego) { decodeResults.textContent = 'Please select a stego file.'; return; }
     if (!key) { decodeResults.textContent = 'Please enter a key.'; return; }
 
     // If stego is an image, enforce (x,y) format
-    if (isImgStego && !/^\s*\d+\s*,\s*\d+\s*$/.test(start)) {
-      decodeResults.textContent = "Start Location must be in 'x,y' format for images.";
-      return;
-    }
-    if (!isImgStego && !/^\s*\d+\s*$/.test(start)) {
-      decodeResults.textContent = 'Start Location must be a whole number for audio files.';
-      return;
-    }
+    if (isImgStego && !/^\s*\d+\s*,\s*\d+\s*$/.test(start)) { return; }
+    if (!isImgStego && !/^\s*\d+\s*$/.test(start)) { return; }
     const fd = new FormData();
     fd.append('stego_file', stego);
     fd.append('key', key);
@@ -485,8 +520,27 @@
   setZoneHandlers(stegoDrop, stegoInput, stegoInfo);
 
   lsbCount && lsbCount.addEventListener('change', triggerCapacity);
-  startInput && startInput.addEventListener('change', () => { triggerCapacity(); onStartLocationTyped(); });
-  startInput && startInput.addEventListener('input', onStartLocationTyped);
   encodeBtn && encodeBtn.addEventListener('click', onEncode);
   decodeBtn && decodeBtn.addEventListener('click', onDecode);
+
+  // Copy key to clipboard
+  copyBtn && copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(keyInput.value || '');
+      copyBtn.textContent = 'Copied';
+      setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1200);
+    } catch {}
+  });
+
+  // When the key changes and encodes an (x,y), reflect on the marker
+  keyInput && keyInput.addEventListener('input', () => {
+    const coverFile = coverInput && coverInput.files && coverInput.files[0];
+    if (!isImageFile(coverFile)) return;
+    const xy = parseImageStartFromKey(keyInput.value || '');
+    if (xy) {
+      selectedXY = xy;
+      moveCoverMarkerToXY(xy[0], xy[1]);
+      try { triggerCapacity(); } catch {}
+    }
+  });
 })();

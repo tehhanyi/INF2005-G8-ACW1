@@ -11,7 +11,7 @@ from PIL import Image, ImageOps
 from modules.image_stego import encode_image, decode_image, parse_start_location
 from modules.audio_stego import encode_audio, decode_audio, calculate_audio_capacity
 #from modules.key_manager import validate_key, generate_lsb_positions
-from modules.key_manager import validate_key
+from modules.key_manager import validate_key, extract_image_start_from_key, extract_audio_start_from_key
 from modules.utils import validate_file_size, get_file_info
 from modules.visualization import (
     generate_difference_map, 
@@ -76,6 +76,16 @@ def encode():
         file_ext = cover_filename.lower().split('.')[-1]
         
         if file_ext in ['png', 'bmp', 'gif', 'jpg', 'jpeg']:
+            # If key encodes a start (KEY@x,y) and no explicit image start was provided, use it.
+            try:
+                with Image.open(cover_path) as tmp:
+                    w, h = tmp.size
+            except Exception:
+                w = h = None
+            key_main, key_start = extract_image_start_from_key(key, w or 0, h or 0)
+            if (not start_location or start_location.strip() in ('0', '0,0')) and key_start:
+                start_location = key_start
+            key = key_main
             result = encode_image(cover_path, payload_path, key, lsb_count, start_location)
         elif file_ext in ['wav', 'pcm']:
             try:
@@ -84,6 +94,11 @@ def encode():
                 return jsonify({'error': 'Start location must be a whole number for audio files.'}), 400
             if audio_start < 0:
                 audio_start = 0
+            # If key encodes a start (KEY@N) and no explicit start provided, use it.
+            key_main, key_start = extract_audio_start_from_key(key)
+            if (start_location.strip() == '0' or start_location.strip() == '') and key_start is not None:
+                audio_start = int(key_start)
+            key = key_main
             result = encode_audio(cover_path, payload_path, key, lsb_count, audio_start)
         else:
             return jsonify({'error': 'Unsupported file format'}), 400
@@ -508,15 +523,27 @@ def decode():
         file_ext = stego_filename.lower().split('.')[-1]
 
         if file_ext in ['png', 'bmp', 'gif', 'jpg', 'jpeg']:
+            try:
+                with Image.open(stego_path) as tmp:
+                    w, h = tmp.size
+            except Exception:
+                w = h = None
+            key_main, key_start = extract_image_start_from_key(key, w or 0, h or 0)
+            if (not start_location or start_location.strip() in ('', '0', '0,0')) and key_start:
+                start_location = key_start
+            key = key_main
             result = decode_image(stego_path, key, lsb_count, start_location)
         elif file_ext in ['wav']:
             try:
+                key_main, key_start = extract_audio_start_from_key(key)
+                if (not start_location or start_location.strip() == '0') and key_start is not None:
+                    start_location = str(int(key_start))
                 audio_start = int(float(start_location))
             except Exception:
                 return jsonify({'error': 'Start location must be a whole number for audio files.'}), 400
             if audio_start < 0:
                 audio_start = 0
-            result = decode_audio(stego_path, key, lsb_count, audio_start)
+            result = decode_audio(stego_path, key_main if 'key_main' in locals() else key, lsb_count, audio_start)
         elif file_ext in ['pcm']:
             return jsonify({'error': 'Raw PCM decode not supported yet'}), 501
         else:

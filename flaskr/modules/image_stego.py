@@ -1,6 +1,7 @@
 # modules/image_stego.py
 from PIL import Image, ImageOps
 import os
+import hashlib
 from .utils import iter_bits_lsb, pack_bits_lsb
 
 def _safe_name(name: str) -> str:
@@ -83,9 +84,12 @@ def encode_image(cover_path, payload_path, key, lsb_count, start_location):
         payload = f.read()
 
     MAGIC = b"ACW1"
+    key_bytes = str(key).encode("utf-8", "ignore")
+    key_sig = hashlib.sha256(key_bytes).digest()[:4]
     name_bytes = _safe_name(payload_path).encode("utf-8", "ignore")[:65535]
     name_len = len(name_bytes)
-    header = MAGIC + name_len.to_bytes(2, "little") + len(payload).to_bytes(4, "little") + name_bytes
+    # Header: MAGIC(4) | KEY_SIG(4) | NAME_LEN(2) | PAYLOAD_LEN(4) | NAME
+    header = MAGIC + key_sig + name_len.to_bytes(2, "little") + len(payload).to_bytes(4, "little") + name_bytes
     blob = header + payload
 
     total_bits = len(blob) * 8
@@ -93,21 +97,11 @@ def encode_image(cover_path, payload_path, key, lsb_count, start_location):
     capacity_bytes = (w * h * 3 * k) // 8
     if carriers_needed > total_carriers:
         raise ValueError(f"Payload too large: needs {len(blob)} bytes, capacity {capacity_bytes} bytes at k={k}")
-
-
-    def positions_iter():
-        remaining = carriers_needed
-        for yy in range(start_y, h):
-            xx0 = start_x if yy == start_y else 0
-            for xx in range(xx0, w):
-                base = ((yy * w) + xx) * 3
-                for ch in range(3):
-                    if remaining <= 0:
-                        return
-                    yield base + ch
-                    remaining -= 1
-
-    positions = positions_iter()
+    # Sequential, contiguous embedding starting exactly at the chosen start
+    end = start + carriers_needed
+    if end > total_carriers:
+        raise ValueError(f"Payload too large for starting location {(total_carriers - carriers_needed) // 3}")
+    positions = range(start, end)
 
     bits = iter_bits_lsb(blob)
     mask = (1 << k) - 1
@@ -146,41 +140,48 @@ def decode_image(stego_path, key, lsb_count, start_location=0):
     w, h = stego_img.size
     data = stego_img.tobytes()
     total_carriers = len(data)
-
+  
     # Enforce (x,y) for images during decode as well
     start_x, start_y = _parse_start_xy(start_location, w, h)
     start = (start_y * w + start_x) * 3
-
+    
     # Wrap-around extraction (read all bytes starting from start)
     positions = [(start + i) % total_carriers for i in range(total_carriers)]
-
+    
     mask = (1 << k) - 1
-
+    
     def bit_stream():
         for idx in positions:
             v = data[idx] & mask
             for j in reversed(range(k)):
                 yield (v >> j) & 1
-
+    
     MAGIC = b"ACW1"
     bits = bit_stream()
-
+    
     magic = pack_bits_lsb((next(bits) for _ in range(32)))
     if magic[:4] != MAGIC:
         raise ValueError("Not a valid stego image for these parameters (MAGIC mismatch).")
-
+    
+    # Verify key signature (next 4 bytes)
+    key_sig_emb = pack_bits_lsb((next(bits) for _ in range(32)))
+    exp_sig = hashlib.sha256(str(key).encode("utf-8", "ignore")).digest()[:4]
+    if key_sig_emb[:4] != exp_sig:
+        raise ValueError("Wrong key for this stego image.")
+    
+    # Read name_len(2) + payload_len(4)
     hdr = pack_bits_lsb((next(bits) for _ in range((2 + 4) * 8)))
     name_len = int.from_bytes(hdr[:2], "little")
     length   = int.from_bytes(hdr[2:6], "little")
     if not (0 <= name_len <= 65535):
         raise ValueError("Corrupted header (filename length).")
-
+    # Read filename
     name_bytes = pack_bits_lsb((next(bits) for _ in range(name_len * 8)))[:name_len]
     try:
         fname = os.path.basename(name_bytes.decode("utf-8", "ignore")).strip() or "payload.bin"
     except Exception:
         fname = "payload.bin"
-
+    
     payload = pack_bits_lsb((next(bits) for _ in range(length * 8)))[:length]
 
     out_path = os.path.join(os.path.dirname(stego_path), fname)

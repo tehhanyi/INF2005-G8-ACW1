@@ -216,6 +216,7 @@
                         <div id="coverPreviewWrapper" class="cover-preview-wrapper">
                             <div class="section-title">Cover Object Preview</div>
                             <div id="coverPreview" class="cover-preview"></div>
+                            <div class="text-muted small mt-2" id="coverStartHelp">Click on the image to set the start location (x,y). If your key lacks a start, it will be appended automatically.</div>
                         </div>
                     </div>
 
@@ -245,7 +246,7 @@
 
                 <!-- Settings -->
                 <div class="row mt-4">
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <label for="lsbCount" class="form-label">LSB Count (1-8):</label>
                         <select class="form-control" id="lsbCount">
                             <option value="1" selected>1</option>
@@ -258,15 +259,14 @@
                             <option value="8">8</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-5">
                         <label for="secretKey" class="form-label">Secret Key:</label>
-                        <input type="text" class="form-control" id="secretKey" placeholder="Enter key">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="secretKey" placeholder="Enter key or key@x,y">
+                            <button class="btn btn-outline-secondary" type="button" id="copyKeyBtn" title="Copy to clipboard">Copy</button>
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <label for="startLocation" id="startLocationLabel" class="form-label">Start Location (x,y):</label>
-                        <input type="text" class="form-control" id="startLocation" value="0,0" placeholder="e.g. 45,60">
-                    </div>
-                    <div class="col-md-3">
+                    <div class="col-md-3 d-flex align-items-end">
                         <button class="btn btn-primary mt-4" id="encodeBtn">Encode</button>
                     </div>
                 </div>
@@ -298,10 +298,6 @@
                             <div class="col-md-4">
                                 <label for="decodeKey" class="form-label">Secret Key:</label>
                                 <input type="text" class="form-control" id="decodeKey" placeholder="Enter key (case-insensitive)">
-                            </div>
-                            <div class="col-md-4">
-                                <label for="decodeStartLocation" id="decodeStartLocationLabel" class="form-label">Start Location (x,y):</label>
-                                <input type="text" class="form-control" id="decodeStartLocation" value="0,0" placeholder="e.g. 45,60">
                             </div>
                         </div>
                         <button class="btn btn-success mt-3" id="decodeBtn">Decode</button>

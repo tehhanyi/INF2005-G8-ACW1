@@ -28,6 +28,52 @@ def validate_key(key) -> bool:
     Accept any non-empty string (case-insensitive). Numbers also valid.
     """
     return _normalize_key_str(key) != ''
+
+# ---- Key+Start helpers ----
+def _split_key_and_start(key: str):
+    """Split a composite key of the form 'KEY@START'.
+    Returns (key_main, start_str or None). Whitespace trimmed.
+    """
+    if key is None:
+        return '', None
+    s = str(key)
+    if '@' in s:
+        left, right = s.split('@', 1)
+        return left.strip(), right.strip()
+    return s.strip(), None
+
+def extract_image_start_from_key(key: str, width: int, height: int):
+    """If key contains '@x,y' or '@@x,y', return (key_main, 'x,y' clamped). Otherwise (key, None)."""
+    key_main, start = _split_key_and_start(key)
+    if not start:
+        return key_main, None
+    # Accept '@x,y' and '@@x,y' by stripping any leading '@'
+    if start.startswith('@'):
+        start = start.lstrip('@')
+    if ',' not in start:
+        return key_main, None
+    try:
+        sx, sy = start.split(',', 1)
+        x = int(float(sx))
+        y = int(float(sy))
+    except Exception:
+        return key_main, None
+    x = max(0, min(width - 1, x))
+    y = max(0, min(height - 1, y))
+    return key_main, f"{x},{y}"
+
+def extract_audio_start_from_key(key: str):
+    """If key contains '@N', return (key_main, int(N) >=0). Otherwise (key, None)."""
+    key_main, start = _split_key_and_start(key)
+    if not start:
+        return key_main, None
+    try:
+        n = int(float(start))
+        if n < 0:
+            n = 0
+        return key_main, n
+    except Exception:
+        return key_main, None
     
 # ---- Position generator (preferred: start + stride) ----
 def _stride_for(total: int, key_int: int) -> int:
