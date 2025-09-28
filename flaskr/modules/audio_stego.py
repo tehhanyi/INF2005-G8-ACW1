@@ -31,6 +31,27 @@ def _write_wav_from_array(path, samples, n_channels, sampwidth, framerate):
         wf.setframerate(framerate)
         wf.writeframes(samples.tobytes())
 
+def _coerce_start_seconds(value):
+    """Return non-negative integer seconds for audio start offset.
+
+    Accepts str/number inputs and defaults to 0 on failure."""
+    if value is None:
+        return 0
+    try:
+        seconds = int(float(value))
+    except Exception:
+        return 0
+    return 0 if seconds < 0 else seconds
+
+
+def _seconds_to_bit_offset(seconds: int, framerate: int, n_channels: int, lsb_count: int) -> int:
+    """Convert seconds into a bit-slot offset for interleaved PCM samples."""
+    if seconds <= 0:
+        return 0
+    samples_per_second = int(framerate) * int(n_channels)
+    return seconds * samples_per_second * int(lsb_count)
+
+
 
 def _embed_bits_into_samples(samples: np.ndarray, bits, lsb_count: int, key: str, start_location: int, n_channels: int):
     if lsb_count < 1 or lsb_count > 8:
@@ -44,7 +65,7 @@ def _embed_bits_into_samples(samples: np.ndarray, bits, lsb_count: int, key: str
         start_location = 0
 
     if start_location + total_bits > total_slots:
-        raise ValueError('Payload too large for selected LSBs and start location')
+        raise ValueError('Payload too large for selected LSBs and start time')
 
     positions = generate_embedding_sequence(key, total_bits, total_slots, start_location=start_location)
 
@@ -91,11 +112,17 @@ def encode_audio(cover_path, payload_path, key, lsb_count, start_location):
         raise ValueError('Invalid key format; expecting numeric key')
 
     try:
-        start_loc = int(start_location) if start_location is not None else 0
-    except Exception:
-        start_loc = 0
+        lsb = int(lsb_count)
+    except Exception as exc:
+        raise ValueError('Invalid LSB count') from exc
+
+    start_seconds = _coerce_start_seconds(start_location)
 
     samples, n_channels, sampwidth, framerate = _load_wav_as_array(cover_path)
+    total_slots = samples.size * lsb
+    start_offset_bits = _seconds_to_bit_offset(start_seconds, framerate, n_channels, lsb)
+    if start_offset_bits >= total_slots:
+        raise ValueError('Start time exceeds audio duration')
 
     # Read payload and prepend header with filename metadata
     with open(payload_path, 'rb') as f:
@@ -116,7 +143,7 @@ def encode_audio(cover_path, payload_path, key, lsb_count, start_location):
     all_bytes = header + payload
     bits = bytes_to_bits(all_bytes)
 
-    _embed_bits_into_samples(samples, bits, int(lsb_count), str(key), int(start_loc), n_channels)
+    _embed_bits_into_samples(samples, bits, lsb, str(key), int(start_offset_bits), n_channels)
 
     # Write out stego WAV next to cover file
     base, ext = os.path.splitext(cover_path)
@@ -126,33 +153,40 @@ def encode_audio(cover_path, payload_path, key, lsb_count, start_location):
     return {
         'stego_path': stego_path,
         'cover_channels': n_channels,
+        'start_seconds': start_seconds,
         'sample_width': sampwidth,
         'framerate': framerate,
         'payload_bytes': payload_len,
     }
 
-
 def decode_audio(stego_path, key, lsb_count, start_location=0):
     """Decode payload from a WAV stego audio using the same key and LSBs.
 
-    Assumes start_location = 0. If a non-zero start was used for encoding,
-    the same must be provided and this function should be extended accordingly.
+    Assumes start_location represents seconds. If a non-zero start time was used for encoding,
+    the same value must be provided for decoding.
     """
     if not validate_key(key):
         raise ValueError('Invalid key format; expecting numeric key')
 
+    try:
+        lsb = int(lsb_count)
+    except Exception as exc:
+        raise ValueError('Invalid LSB count') from exc
+
     samples, n_channels, sampwidth, framerate = _load_wav_as_array(stego_path)
-    total_slots = samples.size * int(lsb_count)
-    if start_location < 0:
-        start_location = 0
+    total_slots = samples.size * lsb
+    start_seconds = _coerce_start_seconds(start_location)
+    start_offset_bits = _seconds_to_bit_offset(start_seconds, framerate, n_channels, lsb)
+    if start_offset_bits >= total_slots:
+        raise ValueError('Start time exceeds audio length')
 
     # Try new header first: need 11 bytes (88 bits) to parse magic, version, name_len, payload_len
     hdr_len_bytes_fixed = 11
     # If not enough capacity beyond start, fail early with a clear message
-    if (hdr_len_bytes_fixed * 8) > (total_slots - int(start_location)):
-        raise ValueError('Decoding failed: insufficient capacity at start position (check start_location)')
+    if (hdr_len_bytes_fixed * 8) > (total_slots - int(start_offset_bits)):
+        raise ValueError('Decoding failed: insufficient capacity at start position (check start time)')
 
-    hdr_bits = _extract_bits_from_samples(samples, hdr_len_bytes_fixed * 8, int(lsb_count), str(key), int(start_location))
+    hdr_bits = _extract_bits_from_samples(samples, hdr_len_bytes_fixed * 8, lsb, str(key), int(start_offset_bits))
     hdr = bits_to_bytes(hdr_bits)
 
     if len(hdr) >= 11 and hdr[:4] == b'STG1':
@@ -160,14 +194,14 @@ def decode_audio(stego_path, key, lsb_count, start_location=0):
         name_len = int.from_bytes(hdr[5:7], 'big')
         payload_len = int.from_bytes(hdr[7:11], 'big')
         if name_len < 0 or payload_len < 0 or name_len > 65535:
-            raise ValueError('Decoding failed: invalid header (check key/lsb/start)')
+            raise ValueError('Decoding failed: invalid header (check key/lsb/start time)')
 
         total_len_bytes = hdr_len_bytes_fixed + name_len + payload_len
         total_bits = total_len_bytes * 8
-        # Validate against capacity beyond start_location
-        if total_bits > (total_slots - int(start_location)):
-            raise ValueError('Decoding failed: header implies size beyond capacity (check key/lsb/start)')
-        all_bits = _extract_bits_from_samples(samples, total_bits, int(lsb_count), str(key), int(start_location))
+        # Validate against capacity beyond the start offset
+        if total_bits > (total_slots - int(start_offset_bits)):
+            raise ValueError('Decoding failed: header implies size beyond capacity (check key/lsb/start time)')
+        all_bits = _extract_bits_from_samples(samples, total_bits, lsb, str(key), int(start_offset_bits))
         all_bytes = bits_to_bytes(all_bits)
         name_bytes = all_bytes[11:11 + name_len]
         payload_bytes = all_bytes[11 + name_len:11 + name_len + payload_len]
@@ -189,24 +223,25 @@ def decode_audio(stego_path, key, lsb_count, start_location=0):
             'payload_filename': decoded_name,
             'payload_bytes': payload_len,
             'header_version': int(ver),
+            'start_seconds': start_seconds,
         }
     else:
         # Fallback to legacy format: first 4 bytes is payload length only
         # We already read 88 bits; however for legacy we need only first 32 bits.
         # Re-extract just the first 32 bits to avoid confusion.
-        if 32 > (total_slots - int(start_location)):
-            raise ValueError('Decoding failed: insufficient capacity at start position (check start_location)')
-        header_bits_legacy = _extract_bits_from_samples(samples, 32, int(lsb_count), str(key), int(start_location))
+        if 32 > (total_slots - int(start_offset_bits)):
+            raise ValueError('Decoding failed: insufficient capacity at start position (check start time)')
+        header_bits_legacy = _extract_bits_from_samples(samples, 32, lsb, str(key), int(start_offset_bits))
         # Convert first 32 bits (LSB-first) to a 4-byte big-endian integer
         legacy_hdr_bytes = bits_to_bytes(header_bits_legacy)
         payload_len = int.from_bytes(legacy_hdr_bytes[:4], 'big')
         if payload_len < 0:
-            raise ValueError('Decoding failed: invalid payload length (check key/lsb/start)')
+            raise ValueError('Decoding failed: invalid payload length (check key/lsb/start time)')
 
         total_bits = 32 + payload_len * 8
-        if total_bits > (total_slots - int(start_location)):
-            raise ValueError('Decoding failed: legacy length beyond capacity (check key/lsb/start)')
-        bits = _extract_bits_from_samples(samples, total_bits, int(lsb_count), str(key), int(start_location))
+        if total_bits > (total_slots - int(start_offset_bits)):
+            raise ValueError('Decoding failed: legacy length beyond capacity (check key/lsb/start time)')
+        bits = _extract_bits_from_samples(samples, total_bits, lsb, str(key), int(start_offset_bits))
         payload_bits = bits[32:]
         payload_bytes = bits_to_bytes(payload_bits)
 
@@ -220,8 +255,8 @@ def decode_audio(stego_path, key, lsb_count, start_location=0):
             'payload_filename': os.path.basename(out_path),
             'payload_bytes': payload_len,
             'header_version': 0,
+            'start_seconds': start_seconds,
         }
-
 
 def calculate_audio_capacity(audio_file, lsb_count):
     """Calculate capacity (in bytes) for a WAV audio given LSB count.

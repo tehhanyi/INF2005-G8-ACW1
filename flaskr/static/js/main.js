@@ -59,7 +59,63 @@
     return !!file && (/\.wav$/i.test(name) || type === 'audio/wav' || type === 'audio/x-wav');
   }
 
-  function updateStartUiForCover(file) {}
+  function updateStartUiForCover(file) {
+    const help = document.getElementById('coverStartHelp');
+    if (!help) return;
+    if (file && isImageFile(file)) {
+      help.style.display = '';
+    } else {
+      help.style.display = 'none';
+    }
+  }
+
+
+  function applyAudioStartToKey(seconds) {
+    if (!keyInput) return;
+    const trimmed = (keyInput.value || '').trim();
+    const cleaned = Math.max(0, Math.round(Number(seconds) || 0));
+    const at = trimmed.indexOf('@');
+    const prefix = at === -1 ? trimmed : trimmed.slice(0, at);
+    const newKey = prefix ? `${prefix}@${cleaned}` : `@${cleaned}`;
+    keyInput.value = newKey;
+  }
+
+  function formatSecondsValue(seconds) {
+    if (!Number.isFinite(seconds)) return '0';
+    const rounded = Math.round(seconds * 100) / 100;
+    if (Number.isInteger(rounded)) return String(rounded);
+    return rounded.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+  }
+
+  let audioCapacityState = null;
+
+  function updateAudioCapacityDisplay(secondsValue) {
+    if (!audioCapacityState || !capInfo) return;
+    const { totalBits, bitsPerSecond, durationSeconds, initialCapacityBytes } = audioCapacityState;
+    const seconds = Math.max(0, Number(secondsValue) || 0);
+    const bps = bitsPerSecond || (durationSeconds ? totalBits / durationSeconds : 0);
+    if (!Number.isFinite(bps) || bps <= 0) {
+      const secondsText = formatSecondsValue(seconds);
+      const unit = Math.abs(Number(secondsText) - 1) < 1e-9 ? 'second' : 'seconds';
+      const baseBytes = Number.isFinite(initialCapacityBytes) ? initialCapacityBytes : 0;
+      const base = `Capacity (after start offset): ${fmtBytes(baseBytes)} (${baseBytes} bytes)`;
+      capInfo.textContent = `${base} | Start time: ${secondsText} ${unit}`;
+      return;
+    }
+    let startBits = Math.round(seconds * bps);
+    if (!Number.isFinite(startBits) || startBits < 0) startBits = 0;
+    if (startBits > totalBits) startBits = totalBits;
+    const remainingBits = Math.max(0, totalBits - startBits);
+    const capacityBytes = Math.floor(remainingBits / 8);
+    const capacityText = `Capacity (after start offset): ${fmtBytes(capacityBytes)} (${capacityBytes} bytes)`;
+    const secondsText = formatSecondsValue(seconds);
+    const unit = Math.abs(Number(secondsText) - 1) < 1e-9 ? 'second' : 'seconds';
+    let extra = ` | Start time: ${secondsText} ${unit}`;
+    if (Number.isFinite(durationSeconds) && durationSeconds > 0) {
+      extra += ` (audio length ~ ${formatSecondsValue(durationSeconds)} seconds)`;
+    }
+    capInfo.textContent = capacityText + extra;
+  }
 
   function updateStartUiForStego(file) { /* no-op: decode start taken from key */ }
 
@@ -166,11 +222,16 @@
 
   function showFileInfo(input, infoBox, previewBox, detailsBox, previewContainer) {
     const f = input && input.files && input.files[0];
+    const isCover = input === coverInput;
     if (!f) {
       if (infoBox) infoBox.textContent = '';
       if (previewContainer) previewContainer.style.display = 'none';
       if (previewBox) hidePreview(previewBox);
       if (detailsBox) hideDetails(detailsBox);
+      if (isCover) {
+        audioCapacityState = null;
+        updateStartUiForCover(null);
+      }
       return;
     }
     if (infoBox) {
@@ -178,6 +239,11 @@
     }
     if (previewContainer) previewContainer.style.display = 'block';
     if (previewBox || detailsBox) renderPreview(f, previewBox, detailsBox);
+    if (isCover) {
+      updateStartUiForCover(f);
+    } else if (!coverInput || !coverInput.files || !coverInput.files.length) {
+      updateStartUiForCover(null);
+    }
   }
 
   function hidePreview(box) {
@@ -288,22 +354,157 @@
     }
 
     if (type.startsWith('audio/') || /\.wav$/i.test(file.name || '')) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'audio-preview-stack w-100';
       const audio = document.createElement('audio');
       audio.controls = true;
-      box.appendChild(audio);
+      audio.style.width = '100%';
+      wrapper.appendChild(audio);
+
+      const sliderContainer = document.createElement('div');
+      sliderContainer.className = 'audio-scrubber mt-2';
+      const sliderRow = document.createElement('div');
+      sliderRow.className = 'd-flex align-items-center gap-2';
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.className = 'form-range flex-grow-1';
+      slider.min = '0';
+      slider.step = '1';
+      slider.value = '0';
+      slider.disabled = true;
+      const timeLabel = document.createElement('span');
+      timeLabel.className = 'audio-time text-muted small';
+      timeLabel.textContent = '0:00 / --:--';
+      sliderRow.appendChild(slider);
+      sliderRow.appendChild(timeLabel);
+      sliderContainer.appendChild(sliderRow);
+      const isCoverAudio = box === coverPreview;
+      if (isCoverAudio) {
+        const hint = document.createElement('div');
+        hint.className = 'audio-scrubber-hint text-muted small mt-1';
+        hint.textContent = 'Use the slider or audio controls to choose the embed start time.';
+        sliderContainer.appendChild(hint);
+      }
+      wrapper.appendChild(sliderContainer);
+      box.appendChild(wrapper);
+
+      const updateTimeDisplay = (currentSeconds) => {
+        const currentText = formatDuration(currentSeconds) ?? '0:00';
+        const totalText = Number.isFinite(audio.duration) && audio.duration > 0
+          ? (formatDuration(audio.duration) ?? '0:00')
+          : '--:--';
+        timeLabel.textContent = `${currentText} / ${totalText}`;
+      };
+
+      const commitSeconds = (seconds, triggerCapacityAfter = false) => {
+        if (!isCoverAudio) return;
+        const numericSeconds = Math.max(0, Number(seconds) || 0);
+        const roundedSeconds = Math.round(numericSeconds);
+        if (startInput) startInput.value = String(roundedSeconds);
+        applyAudioStartToKey(roundedSeconds);
+        updateAudioCapacityDisplay(numericSeconds);
+        if (triggerCapacityAfter) {
+          try { triggerCapacity(); } catch (err) { /* ignore */ }
+        }
+      };
+
+      let rafId = null;
+      const cancelSync = () => {
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      };
+      const step = () => {
+        if (box.dataset.previewToken !== token) {
+          cancelSync();
+          return;
+        }
+        const current = Math.floor(audio.currentTime || 0);
+        slider.value = String(current);
+        updateTimeDisplay(audio.currentTime || 0);
+        if (isCoverAudio) commitSeconds(current, false);
+        if (!audio.paused && !audio.ended) {
+          rafId = requestAnimationFrame(step);
+        } else {
+          cancelSync();
+        }
+      };
+
       const reader = new FileReader();
       reader.onload = () => {
         if (box.dataset.previewToken === token) {
           audio.src = reader.result;
         }
       };
+      reader.readAsDataURL(file);
+
       audio.addEventListener('loadedmetadata', () => {
+        if (box.dataset.previewToken !== token) return;
+        const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
+        slider.max = String(Math.floor(duration));
+        slider.disabled = duration <= 0;
+        updateTimeDisplay(0);
         if (detailsBox && detailsBox.dataset.previewToken === token) {
           const dur = formatDuration(audio.duration);
           if (dur) renderDetails(file, detailsBox, { duration: dur }, token);
         }
+        if (isCoverAudio) {
+          let initial = parseInt(computeStartParam(file), 10);
+          if (!Number.isFinite(initial) || initial < 0) initial = 0;
+          const clamped = duration > 0 ? Math.min(Math.floor(duration), initial) : initial;
+          slider.value = String(clamped);
+          updateTimeDisplay(clamped);
+          try {
+            if (duration > 0 && Math.abs((audio.currentTime || 0) - clamped) > 0.3) {
+              audio.currentTime = Math.min(duration, clamped);
+            }
+          } catch (seekErr) { /* ignore */ }
+          commitSeconds(clamped, false);
+        }
       });
-      reader.readAsDataURL(file);
+
+      audio.addEventListener('play', () => {
+        cancelSync();
+        rafId = requestAnimationFrame(step);
+      });
+      audio.addEventListener('pause', () => {
+        cancelSync();
+        updateTimeDisplay(audio.currentTime || 0);
+        if (isCoverAudio) commitSeconds(audio.currentTime || 0, true);
+      });
+      audio.addEventListener('ended', () => {
+        cancelSync();
+        const endVal = Number.isFinite(audio.duration) ? audio.duration : audio.currentTime || 0;
+        slider.value = String(Math.floor(endVal));
+        updateTimeDisplay(endVal);
+        if (isCoverAudio) commitSeconds(endVal, true);
+      });
+      audio.addEventListener('seeked', () => {
+        updateTimeDisplay(audio.currentTime || 0);
+        if (!audio.paused && !audio.ended) {
+          cancelSync();
+          rafId = requestAnimationFrame(step);
+        }
+      });
+
+      slider.addEventListener('input', () => {
+        const val = Number(slider.value || '0');
+        updateTimeDisplay(val);
+        if (Number.isFinite(audio.duration) && audio.duration > 0) {
+          const clamped = Math.min(audio.duration, Math.max(0, val));
+          if (Math.abs((audio.currentTime || 0) - clamped) > 0.3) {
+            try {
+              audio.currentTime = clamped;
+            } catch (seekErr) { /* ignore */ }
+          }
+        }
+        if (isCoverAudio) commitSeconds(val, false);
+      });
+      slider.addEventListener('change', () => {
+        if (isCoverAudio) commitSeconds(slider.value, true);
+      });
+
       box.style.display = 'block';
       return;
     }
@@ -387,30 +588,58 @@
     capInfo.textContent = '';
     const f = coverInput.files && coverInput.files[0];
     const lsb = parseInt(lsbCount.value || '1', 10);
+    if (!f || !lsb) {
+      audioCapacityState = null;
+      return;
+    }
     const isImg = isImageFile(f);
-    const start = isImg ? computeImageStart(f) : computeStartParam(f);
-    if (!f || !lsb) return;
+    const isAudio = isWavFile(f);
+    const startParam = isImg ? computeImageStart(f) : computeStartParam(f);
     const fd = new FormData();
     fd.append('cover_file', f);
     fd.append('lsb_count', String(lsb));
-    fd.append('start_location', start);
+    fd.append('start_location', startParam);
     try {
       const data = await postForm('/calculate_capacity', fd);
-      const capacityText = `Capacity (after start offset): ${fmtBytes(data.capacity_bytes)} (${data.capacity_bytes} bytes)`;
-      let extra = '';
-      if (typeof data.start_offset_bytes === 'number') {
-        extra += ` | Start offset: ${data.start_offset_bytes} carrier bytes`;
-      } else if (typeof data.start_offset_bits === 'number') {
-        extra += ` | Start offset: ${data.start_offset_bits} LSB slots`;
+      if (isAudio) {
+        const capacityBytes = Number(data.capacity_bytes) || 0;
+        const startBits = Number(data.start_offset_bits) || 0;
+        const totalBits = Math.max(0, startBits + capacityBytes * 8);
+        const durationSeconds = Number(data.audio_duration_seconds);
+        const bitsPerSecond = (Number.isFinite(durationSeconds) && durationSeconds > 0)
+          ? totalBits / durationSeconds
+          : null;
+        audioCapacityState = {
+          totalBits,
+          bitsPerSecond,
+          durationSeconds: Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : null,
+          initialCapacityBytes: capacityBytes,
+        };
+        const serverSeconds = Number(data.start_offset_seconds);
+        const secondsForDisplay = Number.isFinite(serverSeconds)
+          ? serverSeconds
+          : Math.max(0, Number.parseFloat(startParam) || 0);
+        updateAudioCapacityDisplay(secondsForDisplay);
+      } else {
+        audioCapacityState = null;
+        const capacityText = `Capacity (after start offset): ${fmtBytes(data.capacity_bytes)} (${data.capacity_bytes} bytes)`;
+        let extra = '';
+        if (typeof data.start_offset_bytes === 'number') {
+          extra += ` | Start offset: ${data.start_offset_bytes} carrier bytes`;
+        } else if (typeof data.start_offset_bits === 'number') {
+          extra += ` | Start offset: ${data.start_offset_bits} LSB slots`;
+        }
+        if (data.dimensions) {
+          extra += ` | Dimensions: ${data.dimensions}`;
+        }
+        capInfo.textContent = capacityText + extra;
       }
-      if (data.dimensions) {
-        extra += ` | Dimensions: ${data.dimensions}`;
-      }
-      capInfo.textContent = capacityText + extra;
     } catch (err) {
+      audioCapacityState = null;
       capInfo.textContent = `Capacity error: ${JSON.stringify(err)}`;
     }
   }
+
 
   // Encode
   async function onEncode() {

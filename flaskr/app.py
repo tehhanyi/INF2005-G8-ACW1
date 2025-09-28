@@ -6,10 +6,11 @@ import shutil
 import uuid
 import numpy as np
 from PIL import Image, ImageOps
+import wave
 
 # Import your custom modules using absolute imports
 from modules.image_stego import encode_image, decode_image, parse_start_location
-from modules.audio_stego import encode_audio, decode_audio, calculate_audio_capacity
+from modules.audio_stego import encode_audio, decode_audio, _coerce_start_seconds, _seconds_to_bit_offset
 #from modules.key_manager import validate_key, generate_lsb_positions
 from modules.key_manager import validate_key, extract_image_start_from_key, extract_audio_start_from_key
 from modules.utils import validate_file_size, get_file_info
@@ -620,23 +621,57 @@ def calculate_capacity():
                 'dimensions': f'{w}x{h}'
             })
         elif file_ext in ['wav', 'pcm']:
-            total_bytes = calculate_audio_capacity(cover_file, lsb_count)
-            total_bits = total_bytes * 8
             try:
-                start_slots = int(float(start_input))
-            except Exception:
-                return jsonify({'error': 'Start location must be a whole number for audio files.'}), 400
-            if start_slots < 0:
-                start_slots = 0
-            if start_slots > total_bits:
-                start_slots = total_bits
-            remaining_bits = total_bits - start_slots
-            capacity = remaining_bits // 8
-            return jsonify({
-                'capacity_bytes': capacity,
-                'start_location': start_input,
-                'start_offset_bits': start_slots
-            })
+                stream = getattr(cover_file, 'stream', None)
+                pos = None
+                if stream is not None:
+                    try:
+                        pos = stream.tell()
+                    except Exception:
+                        pos = None
+                    try:
+                        stream.seek(0)
+                    except Exception:
+                        pass
+                    with wave.open(stream, 'rb') as wf:
+                        n_frames = wf.getnframes()
+                        n_channels = wf.getnchannels()
+                        framerate = wf.getframerate()
+                    if pos is not None:
+                        try:
+                            stream.seek(pos)
+                        except Exception:
+                            pass
+                else:
+                    with wave.open(cover_file, 'rb') as wf:
+                        n_frames = wf.getnframes()
+                        n_channels = wf.getnchannels()
+                        framerate = wf.getframerate()
+
+                lsb = int(lsb_count)
+                total_samples = n_frames * n_channels
+                total_bits = total_samples * lsb
+                bits_per_second = lsb * n_channels * framerate
+
+                start_seconds_requested = _coerce_start_seconds(start_input)
+                start_offset_bits = _seconds_to_bit_offset(start_seconds_requested, framerate, n_channels, lsb)
+                if start_offset_bits > total_bits:
+                    start_offset_bits = total_bits
+                remaining_bits = max(0, total_bits - start_offset_bits)
+                capacity = remaining_bits // 8
+                start_offset_seconds = round(float(start_offset_bits) / bits_per_second, 6) if bits_per_second else 0.0
+                audio_duration_seconds = round(float(total_bits) / bits_per_second, 6) if bits_per_second else 0.0
+
+                return jsonify({
+                    'capacity_bytes': capacity,
+                    'start_location': start_input,
+                    'start_offset_bits': int(start_offset_bits),
+                    'start_offset_seconds': start_offset_seconds,
+                    'start_seconds_requested': start_seconds_requested,
+                    'audio_duration_seconds': audio_duration_seconds
+                })
+            except wave.Error as exc:
+                return jsonify({'error': f'Unsupported or invalid WAV file: {exc}'}), 400
         else:
             return jsonify({'error': 'Unsupported file format'}), 400
         
