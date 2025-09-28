@@ -33,37 +33,37 @@ def _parse_start_pixel_to_byte(start_input, w, h, total_carriers):
     return pixel_index * 3  # first channel of that pixel
 
 def _parse_start_xy(start_input, w, h):
-    """Parse start as (x,y) pixel coordinates. If a single integer is given,
-    treat it as a pixel index and convert to (x,y). Values are clamped to bounds.
+    """Parse start as strict (x,y) pixel coordinates. Values are clamped to bounds.
+    Raises ValueError if input is not 'x,y'.
     """
-    if start_input is None or str(start_input).strip() == "":
+    if start_input is None:
         return 0, 0
     s = str(start_input).strip()
-    if "," in s:
-        sx, sy = s.split(",", 1)
-        try:
-            x = int(float(sx))
-        except Exception:
-            x = 0
-        try:
-            y = int(float(sy))
-        except Exception:
-            y = 0
-        x = max(0, min(w - 1, x))
-        y = max(0, min(h - 1, y))
-        return x, y
+    if "," not in s:
+        raise ValueError("Start location must be in 'x,y' format for images.")
+    sx, sy = s.split(",", 1)
     try:
-        pixel_index = int(float(s))
+        x = int(float(sx))
     except Exception:
-        pixel_index = 0
-    pixel_index = max(0, min(w * h - 1, pixel_index))
-    y, x = divmod(pixel_index, w)
+        x = 0
+    try:
+        y = int(float(sy))
+    except Exception:
+        y = 0
+    x = max(0, min(w - 1, x))
+    y = max(0, min(h - 1, y))
     return x, y
 
 def parse_start_location(start_input, width: int, height: int) -> int:
-    """Public helper to convert start input into carrier-byte offset for given image size."""
-    total_carriers = width * height * 3
-    return _parse_start_pixel_to_byte(start_input, width, height, total_carriers)
+    """Public helper that enforces (x,y) format for images.
+    Returns the carrier-byte offset for the first channel of that pixel.
+    Raises ValueError if the input is not in 'x,y' shape.
+    """
+    s = str(start_input).strip() if start_input is not None else ''
+    if ',' not in s:
+        raise ValueError("Start location must be in 'x,y' format for images.")
+    x, y = _parse_start_xy(s, width, height)
+    return (y * width + x) * 3
 
 def encode_image(cover_path, payload_path, key, lsb_count, start_location):
     k = int(lsb_count)
@@ -94,10 +94,6 @@ def encode_image(cover_path, payload_path, key, lsb_count, start_location):
     if carriers_needed > total_carriers:
         raise ValueError(f"Payload too large: needs {len(blob)} bytes, capacity {capacity_bytes} bytes at k={k}")
 
-    # Capped embedding (no wrap-around) and explicit pixel-ordered traversal
-    end = start + carriers_needed
-    if end > total_carriers:
-        raise ValueError(f"Payload too large for starting location")
 
     def positions_iter():
         remaining = carriers_needed
@@ -151,7 +147,9 @@ def decode_image(stego_path, key, lsb_count, start_location=0):
     data = stego_img.tobytes()
     total_carriers = len(data)
 
-    start = _parse_start_pixel_to_byte(start_location, w, h, total_carriers)
+    # Enforce (x,y) for images during decode as well
+    start_x, start_y = _parse_start_xy(start_location, w, h)
+    start = (start_y * w + start_x) * 3
 
     # Wrap-around extraction (read all bytes starting from start)
     positions = [(start + i) % total_carriers for i in range(total_carriers)]

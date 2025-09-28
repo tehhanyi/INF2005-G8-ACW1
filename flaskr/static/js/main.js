@@ -34,6 +34,8 @@
   const coverDetails = byId('coverDetails');
   const payloadInfo = byId('payloadInfo');
   const stegoInfo = byId('stegoInfo');
+  const startLabel = byId('startLocationLabel');
+  const decodeStartLabel = byId('decodeStartLocationLabel');
 
   let previewSequence = 0;
 
@@ -44,6 +46,90 @@
   const decodeResults = byId('decodeResults');
 
   // Helpers
+  function isImageFile(file) {
+    const name = file && file.name ? file.name.toLowerCase() : '';
+    const type = (file && file.type || '').toLowerCase();
+    return !!file && (/(\.png|\.bmp|\.gif|\.jpg|\.jpeg)$/i.test(name) || type.startsWith('image/'));
+  }
+  function isWavFile(file) {
+    const name = file && file.name ? file.name.toLowerCase() : '';
+    const type = (file && file.type || '').toLowerCase();
+    return !!file && (/\.wav$/i.test(name) || type === 'audio/wav' || type === 'audio/x-wav');
+  }
+
+  function updateStartUiForCover(file) {
+    if (isWavFile(file)) {
+      if (startLabel) startLabel.textContent = 'Start Location (slots)';
+      if (startInput) {
+        startInput.placeholder = 'integer slots, e.g. 88200';
+        if (!/^\s*\d+\s*$/.test(startInput.value || '')) startInput.value = '0';
+      }
+    } else if (isImageFile(file)) {
+      if (startLabel) startLabel.textContent = 'Start Location (x,y)';
+      if (startInput) {
+        startInput.placeholder = 'e.g. 45,60';
+        if (!/^\s*\d+\s*,\s*\d+\s*$/.test(startInput.value || '')) startInput.value = '0,0';
+      }
+    }
+  }
+
+  function updateStartUiForStego(file) {
+    if (isWavFile(file)) {
+      if (decodeStartLabel) decodeStartLabel.textContent = 'Start Location (slots)';
+      if (decodeStart) {
+        decodeStart.placeholder = 'integer slots, e.g. 88200';
+        if (!/^\s*\d+\s*$/.test(decodeStart.value || '')) decodeStart.value = '0';
+      }
+    } else if (isImageFile(file)) {
+      if (decodeStartLabel) decodeStartLabel.textContent = 'Start Location (x,y)';
+      if (decodeStart) {
+        decodeStart.placeholder = 'e.g. 45,60';
+        if (!/^\s*\d+\s*,\s*\d+\s*$/.test(decodeStart.value || '')) decodeStart.value = '0,0';
+      }
+    }
+  }
+
+  // Move cover marker when user types (x,y)
+  function moveCoverMarkerToXY(x, y) {
+    if (!coverPreview) return;
+    const img = coverPreview.querySelector('img');
+    if (!img || !Number.isFinite(img.naturalWidth) || !img.naturalWidth) return;
+    // Ensure container allows absolute positioning
+    if (!coverPreview.style.position) coverPreview.style.position = 'relative';
+    let marker = coverPreview.querySelector('.click-marker');
+    if (!marker) {
+      marker = document.createElement('div');
+      marker.className = 'click-marker';
+      coverPreview.appendChild(marker);
+    }
+    const scaleX = img.naturalWidth / img.clientWidth;
+    const scaleY = img.naturalHeight / img.clientHeight;
+    const dispX = img.offsetLeft + Math.max(0, Math.min(img.clientWidth - 1, x / scaleX));
+    const dispY = img.offsetTop + Math.max(0, Math.min(img.clientHeight - 1, y / scaleY));
+    marker.style.left = `${dispX}px`;
+    marker.style.top = `${dispY}px`;
+    marker.title = `(${x}, ${y})`;
+  }
+
+  function onStartLocationTyped() {
+    const coverFile = coverInput && coverInput.files && coverInput.files[0];
+    if (!isImageFile(coverFile)) {
+      // Remove marker for non-image covers
+      const m = coverPreview && coverPreview.querySelector && coverPreview.querySelector('.click-marker');
+      if (m) m.remove();
+      return;
+    }
+    if (!startInput) return;
+    const m = /^\s*(\d+)\s*,\s*(\d+)\s*$/.exec(startInput.value || '');
+    if (!m) return; // invalid format; ignore
+    const x = parseInt(m[1], 10);
+    const y = parseInt(m[2], 10);
+    const img = coverPreview && coverPreview.querySelector && coverPreview.querySelector('img');
+    if (!img) return;
+    const nx = Math.max(0, Math.min((img.naturalWidth || 1) - 1, x));
+    const ny = Math.max(0, Math.min((img.naturalHeight || 1) - 1, y));
+    moveCoverMarkerToXY(nx, ny);
+  }
   function setZoneHandlers(zone, input, infoBox, previewBox, detailsBox, previewContainer) {
     if (!zone || !input) return;
     zone.addEventListener('click', () => input.click());
@@ -55,12 +141,14 @@
       if (e.dataTransfer.files && e.dataTransfer.files.length) {
         input.files = e.dataTransfer.files;
         showFileInfo(input, infoBox, previewBox, detailsBox, previewContainer);
-        if (input === coverInput) triggerCapacity();
+        if (input === coverInput) { updateStartUiForCover(input.files[0]); triggerCapacity(); }
+        if (input === stegoInput) { updateStartUiForStego(input.files[0]); }
       }
     });
     input && input.addEventListener('change', () => {
       showFileInfo(input, infoBox, previewBox, detailsBox, previewContainer);
-      if (input === coverInput) triggerCapacity();
+      if (input === coverInput) { updateStartUiForCover(input.files[0]); triggerCapacity(); }
+      if (input === stegoInput) { updateStartUiForStego(input.files[0]); }
     });
   }
 
@@ -276,8 +364,10 @@
     capInfo.textContent = '';
     const f = coverInput.files && coverInput.files[0];
     const lsb = parseInt(lsbCount.value || '1', 10);
-    const startRaw = (startInput && startInput.value ? startInput.value : '0').trim();
-    const start = startRaw === '' ? '0' : startRaw;
+    const isImg = isImageFile(f);
+    const defaultStart = isImg ? '0,0' : '0';
+    const startRaw = (startInput && startInput.value ? startInput.value : defaultStart).trim();
+    const start = startRaw === '' ? defaultStart : startRaw;
     if (!f || !lsb) return;
     const fd = new FormData();
     fd.append('cover_file', f);
@@ -309,11 +399,23 @@
     const payloadTextVal = (payloadText && payloadText.value) ? payloadText.value.trim() : '';
     const key = keyInput.value.trim();
     const lsb = parseInt(lsbCount.value || '1', 10);
-    const startRaw = (startInput && startInput.value ? startInput.value : '0').trim();
-    const start = startRaw === '' ? '0' : startRaw;
+    const isImg = isImageFile(cover);
+    const defaultStart = isImg ? '0,0' : '0';
+    const startRaw = (startInput && startInput.value ? startInput.value : defaultStart).trim();
+    const start = startRaw === '' ? defaultStart : startRaw;
     if (!cover) { encodeResults.textContent = 'Please select a cover file.'; return; }
     if (!payload && !payloadTextVal) { encodeResults.textContent = 'Please select a payload file or enter payload text.'; return; }
     if (!key) { encodeResults.textContent = 'Please enter a key.'; return; }
+
+    // If cover is an image, enforce (x,y) format
+    if (isImg && !/^\s*\d+\s*,\s*\d+\s*$/.test(start)) {
+      // Quietly abort; capacity area already shows the validation error
+      return;
+    }
+    if (!isImg && !/^\s*\d+\s*$/.test(start)) {
+      encodeResults.textContent = 'Start Location must be a whole number for audio files.';
+      return;
+    }
     const fd = new FormData();
     fd.append('cover_file', cover);
     if (payload) {
@@ -343,10 +445,22 @@
     const stego = stegoInput.files && stegoInput.files[0];
     const key = decodeKey.value.trim();
     const lsb = parseInt(decodeLsb.value || '1', 10);
-    const startRaw = (decodeStart && decodeStart.value ? decodeStart.value : '0').trim();
-    const start = startRaw === '' ? '0' : startRaw;
+    const isImgStego = isImageFile(stego);
+    const defaultStart = isImgStego ? '0,0' : '0';
+    const startRaw = (decodeStart && decodeStart.value ? decodeStart.value : defaultStart).trim();
+    const start = startRaw === '' ? defaultStart : startRaw;
     if (!stego) { decodeResults.textContent = 'Please select a stego file.'; return; }
     if (!key) { decodeResults.textContent = 'Please enter a key.'; return; }
+
+    // If stego is an image, enforce (x,y) format
+    if (isImgStego && !/^\s*\d+\s*,\s*\d+\s*$/.test(start)) {
+      decodeResults.textContent = "Start Location must be in 'x,y' format for images.";
+      return;
+    }
+    if (!isImgStego && !/^\s*\d+\s*$/.test(start)) {
+      decodeResults.textContent = 'Start Location must be a whole number for audio files.';
+      return;
+    }
     const fd = new FormData();
     fd.append('stego_file', stego);
     fd.append('key', key);
@@ -371,7 +485,8 @@
   setZoneHandlers(stegoDrop, stegoInput, stegoInfo);
 
   lsbCount && lsbCount.addEventListener('change', triggerCapacity);
-  startInput && startInput.addEventListener('change', triggerCapacity);
+  startInput && startInput.addEventListener('change', () => { triggerCapacity(); onStartLocationTyped(); });
+  startInput && startInput.addEventListener('input', onStartLocationTyped);
   encodeBtn && encodeBtn.addEventListener('click', onEncode);
   decodeBtn && decodeBtn.addEventListener('click', onDecode);
 })();

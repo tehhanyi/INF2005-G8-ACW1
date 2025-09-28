@@ -555,10 +555,10 @@ def calculate_capacity():
     try:
         cover_file = request.files['cover_file']
         lsb_count = int(request.form['lsb_count'])
-        start_raw = request.form.get('start_location', '0')
+        start_raw = request.form.get('start_location', '0,0')
         start_input = start_raw.strip() if isinstance(start_raw, str) else str(start_raw)
         if start_input == '':
-            start_input = '0'
+            start_input = '0,0'
 
         file_ext = cover_file.filename.lower().split('.')[-1]
         image_exts = ['png', 'bmp', 'gif', 'jpg', 'jpeg']
@@ -577,7 +577,7 @@ def calculate_capacity():
                 try:
                     start_offset = parse_start_location(start_input, w, h)
                 except ValueError:
-                    return jsonify({'error': 'Invalid start location format. Use pixel index or x,y.'}), 400
+                    return jsonify({'error': "Invalid start location format. Use 'x,y' for images."}), 400
                 start_offset = max(0, min(total_carriers, start_offset))
                 remaining_carriers = max(0, total_carriers - start_offset)
                 capacity = (remaining_carriers * lsb_count) // 8
