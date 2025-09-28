@@ -234,15 +234,26 @@
     capInfo.textContent = '';
     const f = coverInput.files && coverInput.files[0];
     const lsb = parseInt(lsbCount.value || '1', 10);
-    const start = parseInt(startInput.value || '0', 10);
+    const startRaw = (startInput && startInput.value ? startInput.value : '0').trim();
+    const start = startRaw === '' ? '0' : startRaw;
     if (!f || !lsb) return;
     const fd = new FormData();
     fd.append('cover_file', f);
     fd.append('lsb_count', String(lsb));
-    fd.append('start_location', String(start));
+    fd.append('start_location', start);
     try {
       const data = await postForm('/calculate_capacity', fd);
-      capInfo.textContent = `Capacity (after start offset): ${fmtBytes(data.capacity_bytes)} (${data.capacity_bytes} bytes)`;
+      const capacityText = `Capacity (after start offset): ${fmtBytes(data.capacity_bytes)} (${data.capacity_bytes} bytes)`;
+      let extra = '';
+      if (typeof data.start_offset_bytes === 'number') {
+        extra += ` | Start offset: ${data.start_offset_bytes} carrier bytes`;
+      } else if (typeof data.start_offset_bits === 'number') {
+        extra += ` | Start offset: ${data.start_offset_bits} LSB slots`;
+      }
+      if (data.dimensions) {
+        extra += ` | Dimensions: ${data.dimensions}`;
+      }
+      capInfo.textContent = capacityText + extra;
     } catch (err) {
       capInfo.textContent = `Capacity error: ${JSON.stringify(err)}`;
     }
@@ -256,7 +267,8 @@
     const payloadTextVal = (payloadText && payloadText.value) ? payloadText.value.trim() : '';
     const key = keyInput.value.trim();
     const lsb = parseInt(lsbCount.value || '1', 10);
-    const start = parseInt(startInput.value || '0', 10);
+    const startRaw = (startInput && startInput.value ? startInput.value : '0').trim();
+    const start = startRaw === '' ? '0' : startRaw;
     if (!cover) { encodeResults.textContent = 'Please select a cover file.'; return; }
     if (!payload && !payloadTextVal) { encodeResults.textContent = 'Please select a payload file or enter payload text.'; return; }
     if (!key) { encodeResults.textContent = 'Please enter a key.'; return; }
@@ -269,7 +281,7 @@
     }
     fd.append('key', key);
     fd.append('lsb_count', String(lsb));
-    fd.append('start_location', String(start));
+    fd.append('start_location', start);
     try {
       const data = await postForm('/encode', fd);
       renderJSON(encodeResults, data);
@@ -289,14 +301,15 @@
     const stego = stegoInput.files && stegoInput.files[0];
     const key = decodeKey.value.trim();
     const lsb = parseInt(decodeLsb.value || '1', 10);
-    const start = parseInt(decodeStart.value || '0', 10);
+    const startRaw = (decodeStart && decodeStart.value ? decodeStart.value : '0').trim();
+    const start = startRaw === '' ? '0' : startRaw;
     if (!stego) { decodeResults.textContent = 'Please select a stego file.'; return; }
     if (!key) { decodeResults.textContent = 'Please enter a key.'; return; }
     const fd = new FormData();
     fd.append('stego_file', stego);
     fd.append('key', key);
     fd.append('lsb_count', String(lsb));
-    fd.append('start_location', String(start));
+    fd.append('start_location', start);
     try {
       const data = await postForm('/decode', fd);
       renderJSON(decodeResults, data);

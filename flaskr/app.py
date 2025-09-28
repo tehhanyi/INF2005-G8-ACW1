@@ -4,10 +4,11 @@ import os
 import uuid
 import shutil
 import uuid
-import numpy as np 
+import numpy as np
+from PIL import Image
 
 # Import your custom modules using absolute imports
-from modules.image_stego import encode_image, decode_image, calculate_image_capacity
+from modules.image_stego import encode_image, decode_image, parse_start_location
 from modules.audio_stego import encode_audio, decode_audio, calculate_audio_capacity
 #from modules.key_manager import validate_key, generate_lsb_positions
 from modules.key_manager import validate_key
@@ -44,7 +45,10 @@ def encode():
         payload_text = request.form.get('payload_text', '')
         key = request.form['key']
         lsb_count = int(request.form['lsb_count'])
-        start_location = request.form.get('start_location', '0')
+        start_location_raw = request.form.get('start_location', '0')
+        start_location = start_location_raw.strip() if isinstance(start_location_raw, str) else str(start_location_raw)
+        if start_location == '':
+            start_location = '0'
         
         # Validate inputs
         if not validate_key(key):
@@ -71,10 +75,16 @@ def encode():
         # Determine file type and call appropriate encoding function
         file_ext = cover_filename.lower().split('.')[-1]
         
-        if file_ext in ['png', 'bmp', 'gif']:
+        if file_ext in ['png', 'bmp', 'gif', 'jpg', 'jpeg']:
             result = encode_image(cover_path, payload_path, key, lsb_count, start_location)
         elif file_ext in ['wav', 'pcm']:
-            result = encode_audio(cover_path, payload_path, key, lsb_count, start_location)
+            try:
+                audio_start = int(float(start_location))
+            except Exception:
+                return jsonify({'error': 'Start location must be a whole number for audio files.'}), 400
+            if audio_start < 0:
+                audio_start = 0
+            result = encode_audio(cover_path, payload_path, key, lsb_count, audio_start)
         else:
             return jsonify({'error': 'Unsupported file format'}), 400
 
@@ -481,7 +491,10 @@ def decode():
         stego_file = request.files['stego_file']
         key = request.form['key']
         lsb_count = int(request.form['lsb_count'])
-        start_location = int(request.form.get('start_location', '0'))
+        start_raw = request.form.get('start_location', '0')
+        start_location = start_raw.strip() if isinstance(start_raw, str) else str(start_raw)
+        if start_location == '':
+            start_location = '0'
 
         if not validate_key(key):
             return jsonify({'error': 'Invalid key format'}), 400
@@ -494,10 +507,16 @@ def decode():
         # Determine file type and call appropriate decoding function
         file_ext = stego_filename.lower().split('.')[-1]
 
-        if file_ext in ['png', 'bmp', 'gif']:
+        if file_ext in ['png', 'bmp', 'gif', 'jpg', 'jpeg']:
             result = decode_image(stego_path, key, lsb_count, start_location)
         elif file_ext in ['wav']:
-            result = decode_audio(stego_path, key, lsb_count, start_location)
+            try:
+                audio_start = int(float(start_location))
+            except Exception:
+                return jsonify({'error': 'Start location must be a whole number for audio files.'}), 400
+            if audio_start < 0:
+                audio_start = 0
+            result = decode_audio(stego_path, key, lsb_count, audio_start)
         elif file_ext in ['pcm']:
             return jsonify({'error': 'Raw PCM decode not supported yet'}), 501
         else:
@@ -536,22 +555,62 @@ def calculate_capacity():
     try:
         cover_file = request.files['cover_file']
         lsb_count = int(request.form['lsb_count'])
-        start_location = int(request.form.get('start_location', '0')) if 'start_location' in request.form else 0
-        
-        # Calculate capacity based on file type
+        start_raw = request.form.get('start_location', '0')
+        start_input = start_raw.strip() if isinstance(start_raw, str) else str(start_raw)
+        if start_input == '':
+            start_input = '0'
+
         file_ext = cover_file.filename.lower().split('.')[-1]
-        
-        if file_ext in ['png', 'bmp', 'gif']:
-            total_bytes = calculate_image_capacity(cover_file, lsb_count)
+        image_exts = ['png', 'bmp', 'gif', 'jpg', 'jpeg']
+
+        if file_ext in image_exts:
+            try:
+                # Ensure stream is at beginning for PIL
+                try:
+                    cover_file.stream.seek(0)
+                except Exception:
+                    pass
+                with Image.open(cover_file) as img:
+                    w, h = img.size
+                total_carriers = w * h * 3
+                try:
+                    start_offset = parse_start_location(start_input, w, h)
+                except ValueError:
+                    return jsonify({'error': 'Invalid start location format. Use pixel index or x,y.'}), 400
+                start_offset = max(0, min(total_carriers, start_offset))
+                remaining_carriers = max(0, total_carriers - start_offset)
+                capacity = (remaining_carriers * lsb_count) // 8
+            finally:
+                try:
+                    cover_file.stream.seek(0)
+                except Exception:
+                    pass
+            return jsonify({
+                'capacity_bytes': capacity,
+                'start_location': start_input,
+                'start_offset_bytes': start_offset,
+                'dimensions': f'{w}x{h}'
+            })
         elif file_ext in ['wav', 'pcm']:
             total_bytes = calculate_audio_capacity(cover_file, lsb_count)
+            total_bits = total_bytes * 8
+            try:
+                start_slots = int(float(start_input))
+            except Exception:
+                return jsonify({'error': 'Start location must be a whole number for audio files.'}), 400
+            if start_slots < 0:
+                start_slots = 0
+            if start_slots > total_bits:
+                start_slots = total_bits
+            remaining_bits = total_bits - start_slots
+            capacity = remaining_bits // 8
+            return jsonify({
+                'capacity_bytes': capacity,
+                'start_location': start_input,
+                'start_offset_bits': start_slots
+            })
         else:
             return jsonify({'error': 'Unsupported file format'}), 400
-        # Adjust for start_location in bit slots
-        total_bits = max(0, int(total_bytes) * 8)
-        adjusted_bits = max(0, total_bits - max(0, int(start_location)))
-        capacity = adjusted_bits // 8
-        return jsonify({'capacity_bytes': capacity, 'start_location': start_location})
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
