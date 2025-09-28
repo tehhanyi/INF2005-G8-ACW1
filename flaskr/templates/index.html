@@ -292,12 +292,21 @@
                     <div class="col-md-6">
                         <div class="row">
                             <div class="col-md-4">
-                                <label for="decodeLsbCount" class="form-label">LSB Count:</label>
-                                <input type="number" class="form-control" id="decodeLsbCount" min="1" max="8" value="1">
+                                <label for="decodeLsbCount" class="form-label">LSB Count (1-8):</label>
+                                <select class="form-control" id="decodeLsbCount">
+                                    <option value="1" selected>1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="6">6</option>
+                                    <option value="7">7</option>
+                                    <option value="8">8</option>
+                                </select>
                             </div>
                             <div class="col-md-4">
                                 <label for="decodeKey" class="form-label">Secret Key:</label>
-                                <input type="text" class="form-control" id="decodeKey" placeholder="Enter key (case-insensitive)">
+                                <input type="text" class="form-control" id="decodeKey" placeholder="Enter Secret Key">
                             </div>
                         </div>
                         <button class="btn btn-success mt-3" id="decodeBtn">Decode</button>

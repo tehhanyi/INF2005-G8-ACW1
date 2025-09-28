@@ -39,6 +39,8 @@
 
   let previewSequence = 0;
   let selectedXY = null; // current image selection (x,y) for cover
+  let lockedKeySuffix = null; // '@x,y' set by clicking; locks editing to prefix only
+  let lockedKeySuffixAudio = null; // '@N' lock for WAV
   const copyBtn = byId('copyKeyBtn');
 
   const encodeBtn = byId('encodeBtn');
@@ -61,11 +63,31 @@
 
   function updateStartUiForCover(file) {
     const help = document.getElementById('coverStartHelp');
-    if (!help) return;
-    if (file && isImageFile(file)) {
-      help.style.display = '';
+    if (help) {
+      if (file && isImageFile(file)) help.style.display = '';
+      else help.style.display = 'none';
+    }
+    // Reset/prepare suffix locks depending on file type
+    if (!file) { lockedKeySuffix = null; lockedKeySuffixAudio = null; return; }
+    if (isImageFile(file)) {
+      lockedKeySuffixAudio = null;
+      // keep image suffix lock only via clicking
+    } else if (isWavFile(file)) {
+      lockedKeySuffix = null;
+      const val = (keyInput && keyInput.value) || '';
+      const m = /@(\d+)/.exec(val);
+      if (m) {
+        lockedKeySuffixAudio = `@${m[1]}`;
+        const prefix = val.split('@', 1)[0];
+        if (keyInput) {
+          keyInput.value = `${prefix}${lockedKeySuffixAudio}`;
+          try { keyInput.setSelectionRange(prefix.length, prefix.length); } catch {}
+        }
+      } else {
+        lockedKeySuffixAudio = null;
+      }
     } else {
-      help.style.display = 'none';
+      lockedKeySuffix = null; lockedKeySuffixAudio = null;
     }
   }
 
@@ -325,8 +347,15 @@
             marker.style.top = `${dispY}px`;
             marker.title = `(${x}, ${y})`;
 
-            // Remember selection; do not mutate the key here
+            // Remember selection and lock suffix '@x,y' in the key field
             selectedXY = [x, y];
+            if (keyInput) {
+              lockedKeySuffix = `@${x},${y}`;
+              const current = keyInput.value || '';
+              const prefix = current.split('@', 1)[0];
+              keyInput.value = `${prefix}${lockedKeySuffix}`;
+              try { keyInput.setSelectionRange(prefix.length, prefix.length); } catch {}
+            }
             try { triggerCapacity(); } catch {}
           }
 
@@ -761,15 +790,42 @@
     } catch {}
   });
 
-  // When the key changes and encodes an (x,y), reflect on the marker
+  // When the key changes: if locked suffix exists, keep it and allow editing only before '@'
+  // Otherwise, if user types a valid '@x,y', reflect on the marker as before.
   keyInput && keyInput.addEventListener('input', () => {
     const coverFile = coverInput && coverInput.files && coverInput.files[0];
-    if (!isImageFile(coverFile)) return;
-    const xy = parseImageStartFromKey(keyInput.value || '');
-    if (xy) {
-      selectedXY = xy;
-      moveCoverMarkerToXY(xy[0], xy[1]);
-      try { triggerCapacity(); } catch {}
+    const val = keyInput.value || '';
+    // WAV: lock '@N'
+    if (isWavFile(coverFile)) {
+      if (lockedKeySuffixAudio) {
+        const prefix = val.split('@', 1)[0];
+        const rebuilt = `${prefix}${lockedKeySuffixAudio}`;
+        if (rebuilt !== val) keyInput.value = rebuilt;
+        try { keyInput.setSelectionRange(prefix.length, prefix.length); } catch {}
+        return;
+      }
+      const m = /@(\d+)/.exec(val);
+      if (m) {
+        lockedKeySuffixAudio = `@${m[1]}`;
+        const prefix = val.split('@', 1)[0];
+        keyInput.value = `${prefix}${lockedKeySuffixAudio}`;
+        try { keyInput.setSelectionRange(prefix.length, prefix.length); } catch {}
+      }
+      return;
+    }
+    // Images: lock '@x,y' when present via clicking; otherwise reflect typed coords to marker
+    if (isImageFile(coverFile)) {
+      if (lockedKeySuffix) {
+        const prefix = val.split('@', 1)[0];
+        const rebuilt = `${prefix}${lockedKeySuffix}`;
+        if (rebuilt !== val) keyInput.value = rebuilt;
+        try { keyInput.setSelectionRange(prefix.length, prefix.length); } catch {}
+        const m = /@(\d+),(\d+)/.exec(lockedKeySuffix);
+        if (m) moveCoverMarkerToXY(parseInt(m[1],10), parseInt(m[2],10));
+        return;
+      }
+      const xy = parseImageStartFromKey(val);
+      if (xy) { selectedXY = xy; moveCoverMarkerToXY(xy[0], xy[1]); try { triggerCapacity(); } catch {} }
     }
   });
 })();
