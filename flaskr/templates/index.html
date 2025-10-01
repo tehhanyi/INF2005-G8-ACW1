@@ -632,6 +632,16 @@
             
             if (coverDropZone && coverFileInput) {
                 coverDropZone.addEventListener('click', () => coverFileInput.click());
+                coverDropZone.addEventListener('dragover', (e) => { e.preventDefault(); coverDropZone.classList.add('bg-light'); });
+                coverDropZone.addEventListener('dragleave', () => coverDropZone.classList.remove('bg-light'));
+                coverDropZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    coverDropZone.classList.remove('bg-light');
+                    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+                        const f = e.dataTransfer.files[0];
+                        FileManager.setCoverFile(f, f.name);
+                    }
+                });
                 coverFileInput.addEventListener('change', (e) => {
                     if (e.target.files[0]) {
                         FileManager.setCoverFile(e.target.files[0], e.target.files[0].name);
