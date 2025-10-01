@@ -4,3 +4,4 @@ __pycache__/
 *.pyo
 flaskr/uploads/
 flaskr/downloads/
+flaskr/modules/__pycache__/
