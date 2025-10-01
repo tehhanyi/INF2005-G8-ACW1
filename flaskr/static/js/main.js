@@ -605,8 +605,60 @@
 
   function renderJSON(el, obj) {
     if (!el) return;
-    el.innerHTML = `<pre style="white-space:pre-wrap">${escapeHtml(JSON.stringify(obj, null, 2))}</pre>`;
+
+    const isError = !!(obj && (obj.error || obj.status === 'error' || obj.ok === false));
+    const cap = Number(obj?.capacity_bytes);
+    const emb = Number(obj?.embedded_bytes);
+
+    const start =
+      Array.isArray(obj?.start_xy) ? `${obj.start_xy[0]},${obj.start_xy[1]}` :
+      (obj?.start ?? obj?.start_offset_bytes ?? obj?.start_offset_bits ?? null);
+
+    const lsb = (obj?.k ?? obj?.lsb_count);
+    const dims = obj?.dimensions || null;
+    const fmt  = obj?.stego_format || obj?.format || null;
+
+    el.innerHTML = `
+      <div class="card result-card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <div>${isError ? '⚠️ Error' : '✅ Result'}</div>
+        </div>
+        <div class="card-body">
+          ${isError ? `
+            <div class="alert alert-danger mb-2" role="alert">${escapeHtml(String(obj.error || 'Unknown error'))}</div>
+          ` : `
+            <div class="result-stats mb-2">
+              ${Number.isFinite(cap) ? `<div class="stat-chip"><div class="label">Capacity</div><div class="value">${escapeHtml(fmtBytes(cap))}</div></div>` : ''}
+              ${Number.isFinite(emb) ? `<div class="stat-chip"><div class="label">Embedded</div><div class="value">${escapeHtml(fmtBytes(emb))}</div></div>` : ''}
+              ${lsb != null ? `<div class="stat-chip"><div class="label">LSBs</div><div class="value">${escapeHtml(String(lsb))}</div></div>` : ''}
+              ${start != null ? `<div class="stat-chip"><div class="label">Start</div><div class="value">${escapeHtml(String(start))}</div></div>` : ''}
+              ${dims ? `<div class="stat-chip"><div class="label">Dimensions</div><div class="value">${escapeHtml(String(dims))}</div></div>` : ''}
+              ${fmt ? `<div class="stat-chip"><div class="label">Format</div><div class="value">${escapeHtml(String(fmt))}</div></div>` : ''}
+            </div>
+          `}
+          <details class="mt-2">
+            <summary>Technical details (JSON)</summary>
+            <pre class="json-pre">${escapeHtml(JSON.stringify(obj, null, 2))}</pre>
+            <button type="button" class="btn btn-sm btn-outline-secondary copy-json-btn">Copy JSON</button>
+          </details>
+        </div>
+      </div>
+    `;
+
+    const btn = el.querySelector('.copy-json-btn');
+    if (btn) {
+      btn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
+          btn.textContent = 'Copied';
+          setTimeout(() => (btn.textContent = 'Copy JSON'), 1200);
+        } catch {}
+      });
+    }
   }
+
+
+  
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -712,9 +764,61 @@
         }
       }
       if (data && data.stego_url) {
+        const actions = document.createElement('div');
+        actions.className = 'd-flex align-items-center gap-2 mt-2';
+
+        const filename = (data.stego_url.split('/').pop() || '').trim();
         const a = document.createElement('a');
-        a.href = data.stego_url; a.textContent = 'Download stego file'; a.className = 'btn btn-link p-0';
-        encodeResults.appendChild(a);
+        a.href = data.stego_url;
+        a.className = 'btn btn-primary btn-sm rounded-pill shadow-sm stego-download-btn';
+        a.setAttribute('download', filename || '');
+        a.setAttribute('title', 'Download stego file');
+        a.innerHTML = 'Download Stego File';
+
+        actions.appendChild(a);
+        encodeResults.appendChild(actions);
+
+        // NEW: show the stego file inline next to the link
+        try {
+          const preview = document.createElement('div');
+          preview.className = 'mt-3';
+          encodeResults.appendChild(preview);
+
+          // Because your download route forces attachment, fetch as a Blob and use an object URL
+          const resp = await fetch(data.stego_url);
+          const blob = await resp.blob();
+          const blobUrl = URL.createObjectURL(blob);
+
+          // Decide what to render from the original cover type
+          const isImage = isImg;         
+          const isAudio = isWavFile(cover); 
+
+          if (isImage) {
+        const img = new Image();
+        img.className = 'img-fluid rounded border';
+        img.alt = 'Stego preview';
+        img.src = blobUrl;
+        img.style.maxWidth = '600px';
+        img.style.height = 'auto';
+        img.addEventListener('load', () => URL.revokeObjectURL(blobUrl), { once: true });
+        preview.appendChild(img);
+          } else if (isAudio) {
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.src = blobUrl;
+        audio.addEventListener('loadeddata', () => URL.revokeObjectURL(blobUrl), { once: true });
+        preview.appendChild(audio);
+          } else {
+        // Fallback: show a “Preview not available” note for other types
+        const note = document.createElement('div');
+        note.className = 'text-muted';
+        note.textContent = 'Preview not available for this file type.';
+        preview.appendChild(note);
+          }
+        } catch (_) {
+          // Ignore preview errors silently; link still works
+        }
+
       }
     } catch (err) {
       renderJSON(encodeResults, err);

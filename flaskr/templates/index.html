@@ -181,6 +181,23 @@
             text-align: center;
             margin: 10px 0;
         }
+
+        .result-card { border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.05); overflow: hidden; }
+        .result-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px;
+        }
+        .stat-chip {
+        background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 10px;
+        padding: 8px 10px;
+        }
+        .stat-chip .label { font-size: .75rem; text-transform: uppercase; letter-spacing: .02em; color: #6c757d; }
+        .stat-chip .value { font-weight: 600; }
+        .json-pre {
+        background: #0d1117; color: #c9d1d9; padding: 12px; border-radius: 8px;
+        max-height: 260px; overflow: auto; margin-top: 8px;
+        }
     </style>
 </head>
 <body>

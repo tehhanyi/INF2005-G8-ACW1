@@ -2,6 +2,7 @@
 from PIL import Image, ImageOps
 import os
 import hashlib
+import random
 from .utils import iter_bits_lsb, pack_bits_lsb
 
 def _safe_name(name: str) -> str:
@@ -66,6 +67,44 @@ def parse_start_location(start_input, width: int, height: int) -> int:
     x, y = _parse_start_xy(s, width, height)
     return (y * width + x) * 3
 
+def _scattered_positions(total_carriers: int, start: int, key, w: int, h: int):
+    """Key-seeded pseudo-random order over the SUFFIX starting at 'start'.
+
+    - Restricts embedding to pixels at or after the selected start pixel.
+    - No wrap-around: nothing before 'start' is touched.
+    - Shuffles eligible pixels using a deterministic seed from (key,w,h).
+    - Expands each pixel to its three channel-byte indices in R,G,B order.
+    """
+    if total_carriers <= 0:
+        return []
+    n_pixels = max(0, w * h)
+    if n_pixels == 0:
+        return []
+    # Compute starting pixel index from byte offset
+    start_pixel = (start // 3)
+    if start_pixel < 0:
+        start_pixel = 0
+    if start_pixel >= n_pixels:
+        return []
+
+    # Eligible pixels are only those at or after the start pixel
+    eligible_pixels = list(range(start_pixel, n_pixels))
+    seed_bytes = (f"ACW1|IMG|{w}x{h}|{key}").encode("utf-8", "ignore")
+    seed = int.from_bytes(hashlib.sha256(seed_bytes).digest()[:8], "little")
+    rng = random.Random(seed)
+    rng.shuffle(eligible_pixels)
+
+    # Expand to byte indices in channel order (R,G,B), clipped to available carriers
+    out = []
+    out_extend = out.extend
+    max_needed = total_carriers - (start_pixel * 3)
+    for p in eligible_pixels:
+        base = p * 3
+        out_extend((base, base + 1, base + 2))
+        if len(out) >= max_needed:
+            break
+    return out[:max_needed]
+
 def encode_image(cover_path, payload_path, key, lsb_count, start_location):
     k = int(lsb_count)
     if not (1 <= k <= 8):
@@ -95,13 +134,15 @@ def encode_image(cover_path, payload_path, key, lsb_count, start_location):
     total_bits = len(blob) * 8
     carriers_needed = (total_bits + k - 1) // k
     capacity_bytes = (w * h * 3 * k) // 8
-    if carriers_needed > total_carriers:
-        raise ValueError(f"Payload too large: needs {len(blob)} bytes, capacity {capacity_bytes} bytes at k={k}")
-    # Sequential, contiguous embedding starting exactly at the chosen start
-    end = start + carriers_needed
-    if end > total_carriers:
-        raise ValueError(f"Payload too large for starting location {(total_carriers - carriers_needed) // 3}")
-    positions = range(start, end)
+    # Scattered embedding over suffix only
+    positions_full = _scattered_positions(total_carriers, start, key, w, h)
+    available_from_start = (len(positions_full) * k) // 8
+    if carriers_needed > len(positions_full):
+        raise ValueError(
+            f"Payload too large for starting location: needs {len(blob)} bytes, "
+            f"available from start {available_from_start} bytes at k={k}"
+        )
+    positions = positions_full[:carriers_needed]
 
     bits = iter_bits_lsb(blob)
     mask = (1 << k) - 1
@@ -154,8 +195,8 @@ def decode_image(stego_path, key, lsb_count, start_location=0):
     start_x, start_y = _parse_start_xy(start_location, w, h)
     start = (start_y * w + start_x) * 3
     
-    # Wrap-around extraction (read all bytes starting from start)
-    positions = [(start + i) % total_carriers for i in range(total_carriers)]
+    # Scattered extraction: reproduce key-seeded rotation from the same 'start'
+    positions = _scattered_positions(total_carriers, start, key, w, h)
     
     mask = (1 << k) - 1
     
