@@ -806,7 +806,8 @@
         const audio = document.createElement('audio');
         audio.controls = true;
         audio.src = blobUrl;
-        audio.addEventListener('loadeddata', () => URL.revokeObjectURL(blobUrl), { once: true });
+        audio.addEventListener('ended', () => URL.revokeObjectURL(blobUrl), { once: true });
+        // audio.addEventListener('loadeddata', () => URL.revokeObjectURL(blobUrl), { once: true });
         preview.appendChild(audio);
           } else {
         // Fallback: show a “Preview not available” note for other types
